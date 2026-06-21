@@ -27,6 +27,7 @@ _LOG_STREAM_ROUTE = "/__btb/logs/stream"
 # ── 请求节奏 ──
 # 创建订单的默认请求间隔（毫秒），控制发送频率，避免被风控
 DEFAULT_REQUEST_INTERVAL = 1000
+DEFAULT_RATE_LIMIT_DELAY_MS = 100
 # 创建订单最大重试次数，超过此值本轮放弃，回到外层重新准备
 DEFAULT_CREATE_RETRY_LIMIT = 20
 # 每次 /createV2 返回 has_more_page 时，同一 batch 内连续发送的请求数

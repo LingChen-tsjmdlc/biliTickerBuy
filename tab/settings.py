@@ -230,8 +230,7 @@ def _empty_ticket_info_updates():
 def _has_invalid_index(indices: list[int], values: list[Any]) -> bool:
     """检查索引列表是否包含越界的无效索引。"""
     return any(
-        not isinstance(item, int) or item < 0 or item >= len(values)
-        for item in indices
+        not isinstance(item, int) or item < 0 or item >= len(values) for item in indices
     )
 
 
