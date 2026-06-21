@@ -32,6 +32,7 @@ class NotifierBase(ABC):
         interval_seconds=10,
         duration_minutes=10,  # B站订单保存上限
     ):
+        """初始化通知器基类"""
         super().__init__()
         self.title = title
         self.content = content
@@ -65,12 +66,14 @@ class NotifierBase(ABC):
         loguru.logger.info("通知发送成功")
 
     def start(self):
+        """启动通知线程"""
         if not self.thread.is_alive():
             self.stop_event.clear()
             self.thread = threading.Thread(target=self.run, daemon=True)
             self.thread.start()
 
     def stop(self):
+        """停止通知线程"""
         self.stop_event.set()
         self.thread.join(timeout=3)
 
@@ -80,8 +83,10 @@ class NotifierBase(ABC):
         pass
 
 
+# 通知管理器，统一管理所有通知器
 class NotifierManager:
     def __init__(self):
+        """初始化通知管理器"""
         self.notifier_dict: dict[str, NotifierBase] = {}
 
     def register_notifier(self, name: str, notifier: NotifierBase):
@@ -108,14 +113,17 @@ class NotifierManager:
             loguru.logger.info(f"成功删除推送器: {name}")
 
     def start_all(self):
+        """启动所有已注册的通知器"""
         for notifer in self.notifier_dict.values():
             notifer.start()
 
     def stop_all(self):
+        """停止所有已注册的通知器"""
         for notifer in self.notifier_dict.values():
             notifer.stop()
 
     def start_notifier(self, name: str):
+        """启动指定名称的通知器"""
         notifer = self.notifier_dict.get(name)
         if notifer:
             notifer.start()
@@ -123,6 +131,7 @@ class NotifierManager:
             loguru.logger.error(f"推送器启动失败: 不存在名为{name}的推送器")
 
     def stop_notifier(self, name: str):
+        """停止指定名称的通知器"""
         notifer = self.notifier_dict.get(name)
         if notifer:
             notifer.stop()

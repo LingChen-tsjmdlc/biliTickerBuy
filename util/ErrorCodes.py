@@ -1,4 +1,6 @@
+# 错误码字典与格式化工具
 class ErrorCodes:
+    # 已知错误码 → 中文描述
     MESSAGES = {
         0: "成功",
         3: "下单过于频繁，请稍后再试",
@@ -19,18 +21,22 @@ class ErrorCodes:
         900002: "当前请求较多，请稍后再试",
     }
 
+    # 这些 errno 需要附上服务端原始 msg/message
     SHOW_RESPONSE_MSG = {10003, 100003}
 
     @classmethod
     def get_message(cls, code: int) -> str | None:
+        """查表返回错误码描述，未找到返回 None"""
         return cls.MESSAGES.get(code)
 
     @classmethod
     def get_message_or_unknown(cls, code: int) -> str:
+        """查表，未找到返回'未知错误码'"""
         return cls.MESSAGES.get(code, "未知错误码")
 
     @classmethod
     def should_show_response_msg(cls, code: int) -> bool:
+        """该 errno 是否需要附带服务端原始 msg"""
         return code in cls.SHOW_RESPONSE_MSG
 
     @classmethod
@@ -40,6 +46,7 @@ class ErrorCodes:
         base: str,
         ret: dict | None,
     ) -> str:
+        """必要时在基础信息后追加服务端 msg"""
         if not cls.should_show_response_msg(code) or ret is None:
             return base
         message = str(ret.get("msg", ret.get("message", "")) or "").strip()
@@ -49,6 +56,7 @@ class ErrorCodes:
 
     @classmethod
     def format_attempt_result(cls, err: int, ret: dict) -> str:
+        """格式化单次尝试结果：[errno] 描述 | 可选服务端 msg"""
         reason = cls.get_message(err)
         if reason:
             return cls.append_response_message(err, f"[{err}] {reason}", ret)

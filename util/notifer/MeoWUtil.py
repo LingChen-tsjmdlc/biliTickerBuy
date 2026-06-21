@@ -4,6 +4,7 @@ from util.Constant import MEOW_API_BASE
 from util.notifer.Notifier import NotifierBase
 
 
+# MeoW通知器，通过MeoW服务推送通知
 class MeoWNotifier(NotifierBase):
     def __init__(
         self,
@@ -13,10 +14,12 @@ class MeoWNotifier(NotifierBase):
         interval_seconds=10,
         duration_minutes=10,
     ):
+        """初始化MeoW通知器"""
         super().__init__(title, content, interval_seconds, duration_minutes)
         self.nickname = str(nickname or "").strip().strip("/")
 
     def send_message(self, title, message):
+        """通过MeoW API发送通知"""
         if not self.nickname:
             raise ValueError("MeoW nickname is required")
 

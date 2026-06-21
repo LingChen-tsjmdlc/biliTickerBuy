@@ -1,3 +1,4 @@
+# 抢票启动页面模块，处理配置上传、时间选择、代理分配和任务启动。
 import datetime
 import html
 import json
@@ -31,12 +32,14 @@ from util.Constant import (
 
 
 def withTimeString(string):
+    """给字符串添加北京时间戳前缀。"""
     return (
         f"{datetime.datetime.now(BEIJING_TZ).strftime('%Y-%m-%d %H:%M:%S')}: {string}"
     )
 
 
 def _build_task_log_path(filename: str) -> str:
+    """根据文件名生成唯一的任务日志路径。"""
     filename_only = os.path.splitext(os.path.basename(filename))[0]
     safe_name = "".join(
         ch if ch.isalnum() or ch in "-_." else "_" for ch in filename_only
@@ -46,6 +49,7 @@ def _build_task_log_path(filename: str) -> str:
 
 
 def _parse_sale_start(value) -> datetime.datetime | None:
+    """解析多种格式的起售时间为北京时间 datetime 对象。"""
     if isinstance(value, (int, float)):
         return datetime.datetime.fromtimestamp(value, tz=BEIJING_TZ)
     if isinstance(value, str) and value.strip():
@@ -58,6 +62,7 @@ def _parse_sale_start(value) -> datetime.datetime | None:
 
 
 def _preview_value(value) -> str:
+    """将配置值格式化为预览用的字符串。"""
     if value in (None, "", []):
         return "-"
     if isinstance(value, list):
@@ -66,6 +71,7 @@ def _preview_value(value) -> str:
 
 
 def _format_price_cents(value) -> str:
+    """将以分为单位的价格格式化为 ¥ 元显示。"""
     try:
         amount = int(value)
     except (TypeError, ValueError):
@@ -74,6 +80,7 @@ def _format_price_cents(value) -> str:
 
 
 def _format_buyer_identity(buyer_info) -> str:
+    """格式化购票人姓名和证件类型的字符串。"""
     if not isinstance(buyer_info, list) or not buyer_info:
         return "-"
 
@@ -95,6 +102,7 @@ def _format_buyer_identity(buyer_info) -> str:
 
 
 def _render_ticket_preview(config: dict) -> str:
+    """将抢票配置渲染为 HTML 预览卡片。"""
     items = [
         ("账号", _preview_value(config.get("username"))),
         ("票数", _preview_value(config.get("count"))),
@@ -127,6 +135,7 @@ def _get_session_upload_files() -> list[str]:
 
 
 def _build_session_ticket_preview() -> str:
+    """从会话上传文件中恢复并渲染票务预览。"""
     files = _get_session_upload_files()
     if not files:
         return _render_ticket_preview({})
@@ -141,6 +150,7 @@ def _build_session_ticket_preview() -> str:
 
 
 def go_start_tab():
+    """构建抢票启动页面，包含文件上传、时间选择和任务启动功能。"""
     with gr.Column(elem_classes="btb-page-section"):
         with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
             with gr.Row(elem_classes="!items-stretch !gap-3"):
@@ -203,6 +213,7 @@ def go_start_tab():
 
     @runtime_state_writer(GO_UPLOADED_FILES_STATE_KEY, kind="path_list")
     def upload(filepath):
+        """上传抢票配置文件并渲染票务预览。"""
         try:
             with open(filepath[0], "r", encoding="utf-8") as file:
                 content = json.load(file)
@@ -217,6 +228,7 @@ def go_start_tab():
             )
 
     def file_select_handler(select_data: SelectData, files):
+        """处理多文件列表中的单击选中事件，渲染对应票务预览。"""
         file_label = files[select_data.index]
         try:
             with open(file_label, "r", encoding="utf-8") as file:
@@ -228,6 +240,7 @@ def go_start_tab():
             )
 
     def auto_fill_time(files):
+        """自动从配置文件中提取起售时间并回填到时间选择器。"""
         if not files:
             gr.Warning("请先上传至少一个抢票配置文件。")
             return ""
@@ -266,6 +279,7 @@ def go_start_tab():
         return autofill_value
 
     def split_proxies(https_proxy_list: list[str], task_num: int) -> list[list[str]]:
+        """将代理列表均匀分配给多个任务。"""
         assigned_proxies: list[list[str]] = [[] for _ in range(task_num)]
         for i, proxy in enumerate(https_proxy_list):
             assigned_proxies[i % task_num].append(proxy)
@@ -276,6 +290,7 @@ def go_start_tab():
         *,
         config: BuyConfig,
     ):
+        """启动单个抢票子进程并注册到全局任务管理器。"""
         with open(filename, "r", encoding="utf-8") as file:
             content = file.read()
         filename_only = os.path.basename(filename)
@@ -295,6 +310,7 @@ def go_start_tab():
         return proc
 
     def start_go(files, time_start, interval):
+        """启动所有抢票任务，支持队列和均匀分配两种代理模式。"""
         if not files:
             gr.Warning("未提交抢票配置。")
             return gr.update(visible=False)
@@ -398,6 +414,7 @@ def go_start_tab():
     upload_ui.change(fn=sync_uploaded_files, inputs=upload_ui, outputs=None)
 
     def maybe_auto_fill_time(files):
+        """根据配置决定是否自动填写抢票时间。"""
         if not ConfigDB.get("autoFillTime"):
             return ""
         return auto_fill_time(files)
@@ -475,6 +492,7 @@ def go_start_tab():
     )
 
     def load_go_start_configs():
+        """加载抢票启动页的配置值用于页面初始化。"""
         return gr.update(
             value=ConfigDB.get_as_int("requestInterval", DEFAULT_REQUEST_INTERVAL)
         )

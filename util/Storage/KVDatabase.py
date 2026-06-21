@@ -76,12 +76,14 @@ def _ensure_valid_tinydb_file(path: str) -> None:
         json.dump({"_default": docs}, f, ensure_ascii=False, indent=2)
 
 
+# 基于 TinyDB 的键值数据库封装
 class KVDatabase:
     # 同一个进程内，所有 KVDatabase 实例共享一把锁
     # 防止 Gradio / anyio 多线程同时写 TinyDB
     _lock = RLock()
 
     def __init__(self, db_path: Optional[str]):
+        """初始化数据库，db_path 为空则使用内存存储"""
         if db_path is None:
             self.db = TinyDB(storage=MemoryStorage)
         else:
@@ -119,6 +121,7 @@ class KVDatabase:
         return result["value"] if result else None
 
     def get_as_int(self, key: str, default: int) -> int:
+        """获取 key 对应的整数值，失败返回默认值"""
         raw = self.get(key)
         try:
             value = int(raw)
@@ -127,6 +130,7 @@ class KVDatabase:
         return value
 
     def get_as_bool(self, key: str, default: bool) -> bool:
+        """获取 key 对应的布尔值，None 返回默认值"""
         value = self.get(key)
         if value is None:
             return default

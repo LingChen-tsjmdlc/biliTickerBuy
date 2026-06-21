@@ -1,3 +1,4 @@
+# 通用工具函数，包括Cookie读取、配置加载、请求创建等
 from __future__ import annotations
 
 import copy
@@ -43,11 +44,13 @@ SALES_FLAG_NUMBER_MAP = {
 
 
 def _load_json_file(path: str | Path) -> Any:
+    """从文件路径加载JSON数据。"""
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _read_tinydb_value(path: str | Path, key: str) -> Any:
+    """从TinyDB格式的JSON文件中读取指定key的值。"""
     target = Path(path)
     if not target.exists():
         return None
@@ -71,6 +74,7 @@ def _read_tinydb_value(path: str | Path, key: str) -> Any:
 
 
 def _cookie_store_path(cookies_path: str | Path | None) -> str | None:
+    """解析Cookie文件的存储路径。"""
     if cookies_path is not None:
         return str(Path(cookies_path))
 
@@ -83,6 +87,7 @@ def _cookie_store_path(cookies_path: str | Path | None) -> str | None:
 
 
 def _coerce_cookie_store(raw: Any) -> list[dict[str, Any]] | None:
+    """将各种格式的Cookie数据统一转为列表。"""
     if raw is None:
         return None
     if isinstance(raw, list):
@@ -105,6 +110,7 @@ def _resolve_cookie_list(
     *,
     cookies_path: str | Path | None = None,
 ) -> list[dict[str, Any]] | None:
+    """从参数或文件路径加载并解析Cookie列表。"""
     if cookies is not None:
         return _coerce_cookie_store(cookies)
 
@@ -118,6 +124,7 @@ def _resolve_cookie_list(
 
 
 def _cookies_to_header(cookies: list[dict[str, Any]] | None) -> str:
+    """将Cookie列表转为HTTP请求头字符串。"""
     if not cookies:
         return ""
     parts: list[str] = []
@@ -134,6 +141,7 @@ def _fetch_username_silently(
     *,
     timeout: float = 10.0,
 ) -> str:
+    """通过B站API静默获取当前登录用户名。"""
     if not cookies:
         return "Not login"
     headers = {
@@ -165,18 +173,21 @@ def _fetch_username_silently(
 
 
 def _deepcopy_dict(data: Any) -> dict[str, Any]:
+    """深度拷贝字典，非字典类型则抛出异常。"""
     if isinstance(data, dict):
         return copy.deepcopy(data)
     raise TypeError("config must be a dict or a json file path")
 
 
 def _load_config(config_or_path: str | Path | dict[str, Any]) -> dict[str, Any]:
+    """从文件路径或字典加载并深拷贝配置。"""
     if isinstance(config_or_path, (str, Path)):
         return _deepcopy_dict(_load_json_file(config_or_path))
     return _deepcopy_dict(config_or_path)
 
 
 def _extract_project_id(project_input: str | int) -> int:
+    """从项目ID整数、字符串或URL中提取项目ID。"""
     if isinstance(project_input, int):
         return project_input
 
@@ -195,6 +206,7 @@ def _extract_project_id(project_input: str | int) -> int:
 
 
 def _format_sale_status(ticket: dict[str, Any]) -> str:
+    """将票务的销售状态码转为中文描述。"""
     sale_flag_number = ticket.get("sale_flag_number")
     if sale_flag_number in SALES_FLAG_NUMBER_MAP:
         return SALES_FLAG_NUMBER_MAP[sale_flag_number]
@@ -208,6 +220,7 @@ def _make_request(
     cookies: list[dict[str, Any]] | dict[str, Any] | None = None,
     cookies_path: str | Path | None = None,
 ) -> Any:
+    """创建BiliRequest实例用于后续API请求。"""
     from util.request.BiliRequest import BiliRequest
 
     return BiliRequest(

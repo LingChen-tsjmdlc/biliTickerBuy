@@ -15,11 +15,13 @@ from util.Constant import _LOG_STREAM_ROUTE, _LOG_VIEW_ROUTE
 
 
 def build_log_view_url(path: str) -> str:
+    """构建日志查看页面的 URL"""
     log_name = os.path.basename(path)
     return f"{_LOG_VIEW_ROUTE}?name={quote(log_name, safe='')}"
 
 
 def _resolve_log_path(raw_path: str | None = None, log_name: str | None = None) -> Path:
+    """解析并验证日志文件路径"""
     log_root = Path(LOG_DIR).resolve()
 
     if log_name:
@@ -45,11 +47,13 @@ def _resolve_log_path(raw_path: str | None = None, log_name: str | None = None) 
 
 
 def _read_log_text(path: Path) -> str:
+    """读取日志文件全部文本内容"""
     with open(path, "r", encoding="utf-8", errors="replace") as handle:
         return handle.read()
 
 
 def attach_log_routes(app) -> None:
+    """向 FastAPI app 注册日志查看和流式路由"""
     if getattr(app.state, "btb_log_routes_ready", False):
         return
 
@@ -59,6 +63,7 @@ def attach_log_routes(app) -> None:
         path: str | None = Query(default=None),
         name: str | None = Query(default=None),
     ) -> HTMLResponse:
+        """返回带 SSE 实时更新的日志查看页面"""
         log_path = _resolve_log_path(raw_path=path, log_name=name)
         initial_text = escape(_read_log_text(log_path))
         title = escape(log_path.name)
@@ -166,9 +171,11 @@ def attach_log_routes(app) -> None:
         path: str | None = Query(default=None),
         name: str | None = Query(default=None),
     ) -> StreamingResponse:
+        """SSE 流式推送日志文件增量更新"""
         log_path = _resolve_log_path(raw_path=path, log_name=name)
 
         def generate():
+            """生成器：每秒轮询日志文件变更"""
             position = log_path.stat().st_size
             last_ping = 0.0
             while True:
@@ -210,10 +217,12 @@ def attach_log_routes(app) -> None:
 
 
 def build_log_stream_url(path: str) -> str:
+    """构建日志流 SSE 端点 URL"""
     log_name = os.path.basename(path)
     return f"{_LOG_STREAM_ROUTE}?name={quote(log_name, safe='')}"
 
 
 def _sse(event: str, data: str) -> str:
+    """构建 SSE 格式的事件字符串"""
     safe_data = data.replace("\r\n", "\n").replace("\r", "\n")
     return f"event: {event}\ndata: {safe_data.replace(chr(10), chr(10) + 'data: ')}\n\n"

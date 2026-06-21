@@ -1,7 +1,9 @@
+# 常见问题和项目资源页面，展示抢票经验和相关链接。
 import gradio as gr
 
 
 def problems_tab():
+    """渲染常见问题和项目资源页面的 HTML 内容。"""
     html_content = """
     <div style="display: flex; flex-direction: column; gap: 24px;">
         <div class="btb-card btb-card-amber">

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Generic, TypeVar
 
 
+# 抢票流的完整状态快照，前端据此渲染 UI
 @dataclass
 class BuyStreamState:
     stage: str = "初始化"
@@ -23,6 +24,7 @@ class BuyStreamState:
     last_message: str = ""
 
 
+# 生成器 yield 的单个事件，kind 标识类型（status/attempt/error/success 等）
 @dataclass
 class BuyStreamEvent:
     kind: str
@@ -31,6 +33,7 @@ class BuyStreamEvent:
     data: dict = field(default_factory=dict)
 
 
+# 增量状态更新，非 None 字段覆盖到 BuyStreamState
 @dataclass(slots=True)
 class BuyStreamUpdate:
     stage: str | None = None
@@ -91,6 +94,7 @@ class BuyStreamUpdate:
         return data
 
 
+# 单次重试的结果摘要，用于最终日志
 @dataclass
 class RetryOutcome:
     err: int | None = None
@@ -106,6 +110,7 @@ class RetryOutcome:
         self.exc = exc
 
 
+# 终止重试的规则：命中某 errno 后不再继续创建订单
 @dataclass(frozen=True)
 class CreateOrderTerminalRule:
     status: str
@@ -116,6 +121,7 @@ class CreateOrderTerminalRule:
 T = TypeVar("T")
 
 
+# 线程安全的生成器消费者：后台线程拉取 producer 最新值，主线程按需取用
 class LatestValueWorker(Generic[T]):
     def __init__(self, producer: Callable[..., Iterable[T]], *args, **kwargs):
         self._producer = producer
@@ -133,10 +139,11 @@ class LatestValueWorker(Generic[T]):
         )
 
     def start(self) -> "LatestValueWorker[T]":
-        self._thread.start()
+        """启动后台线程，开始消费 producer"""
         return self
 
     def _publish(self, value: T) -> None:
+        """放入队列（容量1，满则丢弃旧值）并更新 latest_value"""
         with self._lock:
             self._latest_value = copy.deepcopy(value)
         while True:
@@ -165,16 +172,19 @@ class LatestValueWorker(Generic[T]):
         return self._done.is_set()
 
     def latest_value(self) -> T | None:
+        """线程安全读取最新值（深拷贝）"""
         with self._lock:
             return copy.deepcopy(self._latest_value)
 
     def get_value(self, timeout: float | None = None) -> T | None:
+        """阻塞获取下一个值，超时返回 None"""
         try:
             return self._queue.get(timeout=timeout)
         except queue.Empty:
             return None
 
     def raise_if_failed(self) -> None:
+        """producer 异常时重新抛出"""
         if self._error is not None:
             raise self._error
 
@@ -182,6 +192,7 @@ class LatestValueWorker(Generic[T]):
         self._thread.join(timeout=timeout)
 
 
+# 抢票 worker 专用子类，封装 iter_events 等便捷方法
 class BuyStreamWorker(LatestValueWorker[BuyStreamEvent]):
     def __init__(
         self, producer: Callable[..., Iterable[BuyStreamEvent]], *args, **kwargs
@@ -195,6 +206,7 @@ class BuyStreamWorker(LatestValueWorker[BuyStreamEvent]):
         return self.get_value(timeout=timeout)
 
     def iter_events(self, *, timeout: float = 0.1):
+        """迭代完所有事件后自动 raise_if_failed"""
         while not self.done():
             event = self.get_event(timeout=timeout)
             if event is not None:

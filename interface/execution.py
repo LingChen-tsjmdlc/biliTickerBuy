@@ -1,3 +1,4 @@
+# 购票任务执行管理，包括同步/异步购买和受管进程管理
 from __future__ import annotations
 
 import ctypes
@@ -21,16 +22,19 @@ _TASKS_LOCK = threading.Lock()
 
 
 def _package_root() -> Path:
+    """返回项目包根目录。"""
     return Path(__file__).resolve().parents[1]
 
 
 def _managed_runs_root(root: str | Path | None = None) -> Path:
+    """返回受管运行实例的存储根目录。"""
     target = Path(root) if root is not None else _package_root() / "btb_runs"
     target.mkdir(parents=True, exist_ok=True)
     return target
 
 
 def _dump_json(path: Path, payload: dict[str, Any]) -> None:
+    """原子化地将字典写入JSON文件。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with open(tmp_path, "w", encoding="utf-8") as handle:
@@ -39,11 +43,13 @@ def _dump_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
+    """从JSON文件加载字典。"""
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _read_text_tail(path: Path, *, max_lines: int = 20) -> str:
+    """读取文件的最后N行文本。"""
     if not path.exists():
         return ""
     with open(path, "r", encoding="utf-8", errors="replace") as handle:
@@ -52,6 +58,7 @@ def _read_text_tail(path: Path, *, max_lines: int = 20) -> str:
 
 
 def _heartbeat_timeout_seconds(status: dict[str, Any]) -> float:
+    """从状态字典中提取心跳超时秒数。"""
     value = status.get("heartbeat_timeout_seconds")
     if isinstance(value, (int, float)) and value > 0:
         return float(value)
@@ -62,6 +69,7 @@ def _update_managed_status(
     run_dir: Path,
     **fields: Any,
 ) -> dict[str, Any]:
+    """更新受管运行的status.json并写入文件。"""
     status_path = run_dir / "status.json"
     status = _load_json(status_path)
     status.update(fields)
@@ -71,6 +79,7 @@ def _update_managed_status(
 
 
 def _pid_is_running(pid: int | None) -> bool:
+    """检查指定PID的进程是否仍在运行。"""
     if not isinstance(pid, int) or pid <= 0:
         return False
     if os.name == "nt":
@@ -103,6 +112,7 @@ def _pid_is_running(pid: int | None) -> bool:
 
 
 def _terminate_pid(pid: int) -> None:
+    """终止指定PID的进程及其子进程。"""
     if os.name == "nt":
         subprocess.run(
             ["taskkill", "/PID", str(pid), "/T", "/F"],
@@ -121,6 +131,7 @@ def _build_managed_failure_result(
     error: str,
     status: dict[str, Any],
 ) -> dict[str, Any]:
+    """构建受管运行失败时的结果字典。"""
     stdout_tail = _read_text_tail(run_dir / "stdout.log")
     stderr_tail = _read_text_tail(run_dir / "stderr.log")
     result = {
@@ -145,6 +156,7 @@ def _mark_managed_run_failed(
     run_id: str,
     error: str,
 ) -> dict[str, Any]:
+    """将受管运行标记为失败并写入结果文件。"""
     status = _update_managed_status(
         run_dir,
         status="failed",
@@ -158,6 +170,7 @@ def _mark_managed_run_failed(
 
 
 def _reconcile_managed_run(run_dir: Path, status: dict[str, Any]) -> dict[str, Any]:
+    """对账受管运行状态：检测心跳超时或进程异常退出。"""
     current_status = status.get("status")
     if current_status in {
         "succeeded",
@@ -219,6 +232,7 @@ def _reconcile_managed_run(run_dir: Path, status: dict[str, Any]) -> dict[str, A
 
 
 def _append_log(task_id: str, message: str) -> None:
+    """向任务日志追加一条消息。"""
     with _TASKS_LOCK:
         record = _TASKS[task_id]
         record.logs.append(message)
@@ -227,6 +241,7 @@ def _append_log(task_id: str, message: str) -> None:
 
 
 def _update_task(task_id: str, **fields: Any) -> None:
+    """更新内存中的任务记录属性。"""
     with _TASKS_LOCK:
         record = _TASKS[task_id]
         for key, value in fields.items():
@@ -238,6 +253,7 @@ def _run_buy_task(
     config: dict[str, Any],
     runtime_options: RuntimeOptions,
 ) -> None:
+    """在独立线程中执行抢票任务流。"""
     from app_cmd.config.BuyConfig import BuyConfig
     from task.buy import Buy
 
@@ -280,6 +296,7 @@ def start_buy(
     *,
     runtime_options: dict[str, Any] | RuntimeOptions | None = None,
 ) -> dict[str, Any]:
+    """启动一个后台异步抢票任务。"""
     validation = validate_config(config_or_path)
     if not validation.ok:
         return {"ok": False, "validation": validation.to_dict(), "task": None}
@@ -314,6 +331,7 @@ def start_buy(
 
 
 def task_status(task_id: str) -> dict[str, Any]:
+    """查询指定任务ID的执行状态。"""
     with _TASKS_LOCK:
         record = _TASKS.get(task_id)
         if record is None:
@@ -326,6 +344,7 @@ def run_buy_sync(
     *,
     runtime_options: dict[str, Any] | RuntimeOptions | None = None,
 ) -> dict[str, Any]:
+    """同步执行抢票流程并等待完成。"""
     from app_cmd.config.BuyConfig import BuyConfig
     from task.buy import Buy
 
@@ -378,6 +397,7 @@ def start_managed_buy(
     run_id: str | None = None,
     runs_root: str | Path | None = None,
 ) -> dict[str, Any]:
+    """启动一个独立进程的受管抢票任务。"""
     validation = validate_config(config_or_path)
     if not validation.ok:
         return {"ok": False, "validation": validation.to_dict(), "run": None}
@@ -499,6 +519,7 @@ def managed_task_status(
     *,
     runs_root: str | Path | None = None,
 ) -> dict[str, Any]:
+    """查询受管抢票任务的当前运行状态。"""
     run_dir = _managed_runs_root(runs_root) / run_id
     status_path = run_dir / "status.json"
     if not status_path.exists():
@@ -515,6 +536,7 @@ def cancel_managed_buy(
     *,
     runs_root: str | Path | None = None,
 ) -> dict[str, Any]:
+    """取消正在运行的受管抢票任务。"""
     run_dir = _managed_runs_root(runs_root) / run_id
     status_path = run_dir / "status.json"
     if not status_path.exists():
@@ -576,6 +598,7 @@ def delete_managed_buy(
     runs_root: str | Path | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
+    """删除受管抢票任务的运行目录。"""
     managed_root = _managed_runs_root(runs_root)
     run_dir = managed_root / run_id
     if not run_dir.exists():

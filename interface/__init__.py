@@ -1,3 +1,4 @@
+# interface 包统一导出，聚合所有公开API
 from __future__ import annotations
 
 from .auth import get_login_state, login_with_cookies, poll_qr_login, start_qr_login

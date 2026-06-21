@@ -1,3 +1,4 @@
+# 应用版本号读取工具
 """Application version helpers."""
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ import tomllib
 
 
 def _read_pyproject_version() -> str:
+    """从 pyproject.toml 回退读取版本号"""
     candidates = [
         Path(__file__).resolve().with_name("pyproject.toml"),
         Path(getattr(sys, "_MEIPASS", "")).resolve() / "pyproject.toml"
@@ -27,7 +29,7 @@ def _read_pyproject_version() -> str:
 
 
 def get_app_version() -> str:
-    """Return the installed package version, falling back to pyproject.toml."""
+    """返回已安装包的版本号，失败时回退到 pyproject.toml"""
     try:
         return version("bilitickerbuy")
     except PackageNotFoundError:

@@ -8,6 +8,7 @@ class AudioNotifier(NotifierBase):
     def __init__(
         self, audio_path, title="", content="", interval_seconds=10, duration_minutes=10
     ):
+        """初始化音频通知器"""
         super().__init__(title, content, interval_seconds, duration_minutes)
         self.audio_path = audio_path
 

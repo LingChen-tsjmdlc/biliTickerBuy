@@ -1,3 +1,4 @@
+# 任务日志管理模块，提供任务状态监控、日志文件操作和任务卡片渲染。
 import ctypes
 import gradio as gr
 import html
@@ -49,6 +50,7 @@ OPEN_PAYMENT_URLS_JS = """
 
 
 def _status_class(status: str) -> str:
+    """将任务状态映射为对应的 CSS 类名。"""
     mapping = {
         TASK_STATUS_RUNNING: "is-running",
         TASK_STATUS_COMPLETED: "is-completed",
@@ -59,14 +61,16 @@ def _status_class(status: str) -> str:
 
 
 def _refresh_token() -> int:
+    """生成纳米级时间戳作为刷新令牌。"""
     return time.time_ns()
 
 
 def build_main_log_card() -> str:
-    return ""
+    """构建主日志卡片的 HTML（当前返回空）。"""
 
 
 def _render_log_path(path: str) -> str:
+    """渲染日志文件路径的 HTML 片段。"""
     return """
     <div class="btb-task-card__meta">
       日志路径
@@ -78,12 +82,14 @@ def _render_log_path(path: str) -> str:
 
 
 def _render_log_view_action(path: str) -> str:
+    """渲染查看日志文件的链接按钮 HTML。"""
     return """
     <a class="btb-task-link btb-task-button" href="{log_view_url}" target="_blank" rel="noopener noreferrer">查看</a>
     """.format(log_view_url=html.escape(build_log_view_url(path)))
 
 
 def _list_log_files() -> list[str]:
+    """列出日志目录中的所有文件并按修改时间降序排列。"""
     try:
         items = [
             os.path.join(LOG_DIR, name)
@@ -96,6 +102,7 @@ def _list_log_files() -> list[str]:
 
 
 def _find_task_entry_by_log_file(log_file: str):
+    """根据日志文件路径查找对应的任务条目。"""
     normalized = os.path.abspath(log_file)
     for entry in visible_task_entries():
         if os.path.abspath(entry.log_file) == normalized:
@@ -104,6 +111,7 @@ def _find_task_entry_by_log_file(log_file: str):
 
 
 def clear_log_files():
+    """清除所有非运行中任务的日志文件。"""
     log_files = _list_log_files()
     if not log_files:
         gr.Info("当前没有可清除的日志文件。")
@@ -153,6 +161,7 @@ def clear_log_files():
 
 
 def is_task_running(pid: int | None) -> bool:
+    """跨平台检测指定 PID 的进程是否仍在运行。"""
     if not pid:
         return False
     if os.name == "nt":
@@ -200,6 +209,7 @@ def is_task_running(pid: int | None) -> bool:
 
 
 def _is_posix_zombie_process(pid: int) -> bool:
+    """检查 POSIX 系统下的进程是否为僵尸进程。"""
     try:
         result = subprocess.run(
             ["ps", "-o", "stat=", "-p", str(pid)],
@@ -219,6 +229,7 @@ def _is_posix_zombie_process(pid: int) -> bool:
 
 
 def _send_posix_signal(pid: int, sig: signal.Signals) -> str:
+    """向 POSIX 进程发送信号，返回发送结果状态。"""
     try:
         pgid = os.getpgid(pid)
     except ProcessLookupError:
@@ -244,6 +255,7 @@ def _send_posix_signal(pid: int, sig: signal.Signals) -> str:
 
 
 def terminate_task(pid: int) -> str:
+    """跨平台终止指定 PID 的任务进程。"""
     if not is_task_running(pid):
         return "任务进程已结束。"
 
@@ -302,6 +314,7 @@ def terminate_task(pid: int) -> str:
 
 
 def sync_task_statuses() -> list:
+    """同步所有已注册任务的状态（运行中/已完成/已停止）。"""
     entries = GlobalStatusInstance.get_task_logs()
     for entry in entries:
         payment_qr_url = extract_payment_qr_url(entry.log_file)
@@ -327,10 +340,12 @@ def sync_task_statuses() -> list:
 
 
 def visible_task_entries():
+    """返回当前可见的任务条目列表（含状态同步）。"""
     return sync_task_statuses()
 
 
 def log_contains_marker(log_file: str, marker: str) -> bool:
+    """检测日志文件尾部是否包含指定标记字符串。"""
     try:
         with open(log_file, "rb") as handle:
             handle.seek(0, os.SEEK_END)
@@ -343,6 +358,7 @@ def log_contains_marker(log_file: str, marker: str) -> bool:
 
 
 def extract_payment_qr_url(log_file: str) -> str | None:
+    """从日志文件尾部提取支付二维码 URL。"""
     try:
         with open(log_file, "rb") as handle:
             handle.seek(0, os.SEEK_END)
@@ -360,10 +376,12 @@ def extract_payment_qr_url(log_file: str) -> str | None:
 
 
 def refresh_task_panel():
+    """刷新任务管理面板的可见性和刷新令牌。"""
     return _refresh_token(), gr.update(visible=bool(visible_task_entries()))
 
 
 def refresh_task_panel_with_payments():
+    """刷新任务面板并提取支付 URL 列表用于自动打开。"""
     entries = visible_task_entries()
     urls = [entry.payment_qr_url for entry in entries if entry.payment_qr_url]
     return (
@@ -374,10 +392,12 @@ def refresh_task_panel_with_payments():
 
 
 def refresh_log_panel():
+    """刷新日志面板的刷新令牌。"""
     return _refresh_token(), gr.update(visible=True)
 
 
 def stop_task(pid: int):
+    """停止指定任务进程并更新其状态。"""
     entry = GlobalStatusInstance.get_task_log(pid)
     message = terminate_task(pid)
     if entry and entry.log_file:
@@ -391,6 +411,7 @@ def stop_task(pid: int):
 
 
 def remove_task(pid: int):
+    """移除任务记录，若任务仍在运行则先终止。"""
     entry = GlobalStatusInstance.get_task_log(pid)
     if entry is None:
         gr.Warning("任务记录不存在。")
@@ -407,6 +428,7 @@ def remove_task(pid: int):
 
 
 def append_stop_log(log_file: str, title: str, message: str) -> None:
+    """向日志文件追加任务停止标记和说明。"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         with open(log_file, "a", encoding="utf-8", errors="replace") as handle:
@@ -419,6 +441,7 @@ def append_stop_log(log_file: str, title: str, message: str) -> None:
 
 
 def read_task_log_locations():
+    """生成所有任务日志位置的 HTML 展示。"""
     entries = visible_task_entries()
     if not entries:
         return build_main_log_card()
@@ -456,6 +479,7 @@ def read_task_log_locations():
 
 
 def render_task_manager_panel(task_panel):
+    """构建任务管理面板，包含任务卡片、刷新按钮和自动轮询。"""
     refresh_token = gr.State(_refresh_token())
     payment_url_bus = gr.Textbox(visible=False)
     auto_refresh_timer = gr.Timer(value=2.0)
@@ -470,6 +494,7 @@ def render_task_manager_panel(task_panel):
 
     @gr.render(inputs=refresh_token)
     def render_task_cards(_refresh_value):
+        """根据刷新令牌重新渲染所有任务卡片。"""
         gr.HTML(build_main_log_card())
         with gr.Column(elem_classes="btb-task-grid"):
             for entry in visible_task_entries():
@@ -547,6 +572,7 @@ def render_task_manager_panel(task_panel):
 
 
 def log_tab():
+    """构建日志文件列表页面，展示所有日志文件及操作按钮。"""
     refresh_token = gr.State(_refresh_token())
     with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card") as task_panel:
         with gr.Row(elem_classes="btb-task-toolbar-row"):
@@ -575,6 +601,7 @@ def log_tab():
 
         @gr.render(inputs=refresh_token)
         def render_log_files(_refresh_value):
+            """根据刷新令牌重新渲染日志文件列表。"""
             log_files = _list_log_files()
             if not log_files:
                 gr.HTML(

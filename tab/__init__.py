@@ -1,3 +1,1 @@
-"""
-UI tabs and helpers for biliTickerBuy.
-"""
+# UI tabs and helpers for biliTickerBuy.

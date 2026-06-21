@@ -1,3 +1,4 @@
+# 登录认证功能，包括二维码登录、轮询和Cookie登录
 from __future__ import annotations
 
 import tempfile
@@ -19,6 +20,7 @@ def get_login_state(
     cookies: list[dict[str, object]] | dict[str, object] | None = None,
     cookies_path: str | Path | None = None,
 ) -> dict[str, object]:
+    """检测当前Cookie的登录状态。"""
     cookie_list = _resolve_cookie_list(cookies, cookies_path=cookies_path)
     has_cookies = bool(cookie_list)
     username = _fetch_username_silently(cookie_list)
@@ -40,6 +42,7 @@ def start_qr_login(
     retry_interval: float = 1.0,
     qr_image_path: str | Path | None = None,
 ) -> dict[str, object]:
+    """生成B站登录二维码，保存为本地图片。"""
     import qrcode
 
     request_headers = headers or {
@@ -92,6 +95,7 @@ def poll_qr_login(
     poll_interval: float = 0.5,
     headers: dict[str, str] | None = None,
 ) -> dict[str, object]:
+    """轮询扫码状态直到登录成功或超时。"""
     from util.request.CookieManager import parse_cookie_list
 
     if not qrcode_key:
@@ -151,6 +155,7 @@ def login_with_cookies(
     *,
     cookies_path: str | Path | None = None,
 ) -> dict[str, object]:
+    """使用已有Cookie直接登录。"""
     cookie_list = _resolve_cookie_list(cookies, cookies_path=cookies_path)
     username = _fetch_username_silently(cookie_list)
     return {

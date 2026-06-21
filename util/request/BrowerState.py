@@ -11,6 +11,7 @@ from typing import Any, Mapping
 # =========================
 
 
+# 浏览器窗口尺寸状态
 class BrowserWindowState(TypedDict):
     scrollX: int
     scrollY: int
@@ -26,12 +27,14 @@ class BrowserWindowState(TypedDict):
     screenAvailHeight: int
 
 
+# 浏览器显示状态（像素比、色深等）
 class BrowserDisplayState(TypedDict):
     devicePixelRatio: float
     colorDepth: int
     pixelDepth: int
 
 
+# 浏览器导航器状态（UA、平台、语言等）
 class BrowserNavigatorState(TypedDict):
     userAgent: str
     appCodeName: str
@@ -51,12 +54,14 @@ class BrowserNavigatorState(TypedDict):
     webdriver: bool
 
 
+# 浏览器区域与时区状态
 class BrowserLocaleState(TypedDict):
     locale: str
     timezone: str
     timezoneOffset: int
 
 
+# 浏览器Location/History状态
 class BrowserLocationState(TypedDict):
     href: str
     origin: str
@@ -71,6 +76,7 @@ class BrowserLocationState(TypedDict):
     historyLength: int
 
 
+# 浏览器WebGL指纹状态
 class BrowserWebGLState(TypedDict):
     vendor: str
     renderer: str
@@ -78,18 +84,21 @@ class BrowserWebGLState(TypedDict):
     unmaskedRenderer: str
 
 
+# 浏览器Canvas指纹状态
 class BrowserCanvasState(TypedDict):
     winding: Literal["yes", "no"]
     x64hash128: str
     dataUrlHash: NotRequired[str]
 
 
+# 浏览器存储状态（localStorage/sessionStorage/cookies）
 class BrowserStorageState(TypedDict):
     localStorage: dict[str, str]
     sessionStorage: dict[str, str]
     cookies: dict[str, str]
 
 
+# 完整浏览器指纹状态（聚合以上所有子状态）
 class BrowserFingerprintState(TypedDict):
     window: BrowserWindowState
     display: BrowserDisplayState
@@ -705,6 +714,7 @@ def generate_browser_fingerprint_state(
 
 
 def finalize_device_id(raw_device_id: str) -> str:
+    """对32位hex device_id进行最终混淆处理"""
     if not isinstance(raw_device_id, str):
         raise TypeError("raw_device_id must be a string")
 
@@ -763,6 +773,7 @@ def finalize_device_id(raw_device_id: str) -> str:
 
 
 def _cookie_dict_to_header(cookies: Mapping[str, str] | None) -> str:
+    """将Cookie字典转换为请求头格式字符串"""
     if not cookies:
         return ""
     return "; ".join(f"{k}={v}" for k, v in cookies.items())
@@ -789,6 +800,7 @@ def _build_sec_ch_ua(user_agent: str) -> str:
 
 
 def _build_sec_ch_ua_platform(platform: str) -> str:
+    """根据navigator.platform生成sec-ch-ua-platform头"""
     if platform == "Win32":
         return '"Windows"'
     if platform == "MacIntel":

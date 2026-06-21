@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 def _trim_old_paths(paths: list[Path], *, max_count: int) -> list[Path]:
+    """返回超出数量限制的旧路径列表"""
     if max_count <= 0 or len(paths) <= max_count:
         return []
     sorted_paths = sorted(paths, key=lambda item: item.stat().st_mtime, reverse=True)
@@ -14,6 +15,7 @@ def _trim_old_paths(paths: list[Path], *, max_count: int) -> list[Path]:
 
 
 def _remove_path(path: Path) -> None:
+    """安全删除文件或目录"""
     if path.is_dir():
         shutil.rmtree(path, ignore_errors=True)
         return
@@ -32,6 +34,7 @@ def cleanup_runtime_artifacts(
     max_log_files: int = 200,
     max_run_dirs: int = 100,
 ) -> dict[str, int]:
+    """清理过期日志和运行目录，返回清理统计"""
     now = time.time()
     cutoff = now - max(1, int(retention_days)) * 86400
     logs_root = Path(logs_dir)

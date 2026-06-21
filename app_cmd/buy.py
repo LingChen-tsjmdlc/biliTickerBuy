@@ -1,3 +1,4 @@
+# BiliTickerBuy 命令行抢票入口
 import os
 import re
 import sys
@@ -9,6 +10,7 @@ from tab.log import TASK_STOPPED_MARKER
 
 
 def buy_cmd(args: BuyCliArgs):
+    """执行命令行抢票流程，加载配置并启动购票任务"""
     args.apply_log_env()
 
     from util.log.LogConfig import loguru_config
@@ -29,6 +31,7 @@ def buy_cmd(args: BuyCliArgs):
         tickets_info: str,
         config_file: str,
     ) -> tuple[str, str | None, str]:
+        """从命令行参数或配置文件加载票务信息"""
         tickets_info = (tickets_info or "").strip()
         config_file = (config_file or "").strip()
 
@@ -54,12 +57,14 @@ def buy_cmd(args: BuyCliArgs):
         return "", None, "none"
 
     def resolve_log_file_name() -> str:
+        """从环境变量或 UUID 生成日志文件名"""
         configured_name = os.environ.get("BTB_APP_LOG_NAME", "").strip()
         if configured_name:
             return re.sub(r"[^\w.\-]", "_", os.path.basename(configured_name))
         return f"{uuid.uuid4()}.log"
 
     def hold_terminal(message: str) -> None:
+        """显示消息并等待用户按键（Windows/macOS/Linux 兼容）"""
         try:
             if os.name == "nt":
                 import msvcrt
@@ -75,19 +80,23 @@ def buy_cmd(args: BuyCliArgs):
             pass
 
     def hold_terminal_after_interrupt():
+        """中断后显示提示并等待按键"""
         hold_terminal("已停止当前抢票流程。按任意键关闭此窗口...")
 
     def hold_terminal_after_finish() -> None:
+        """抢票结束后根据配置决定是否保持终端"""
         if os.environ.get("BTB_HOLD_TERMINAL", "") != "1":
             return
         hold_terminal("抢票流程已结束。按任意键关闭此窗口...")
 
     def hold_terminal_after_error(message: str) -> None:
+        """错误后根据配置决定是否保持终端"""
         if os.environ.get("BTB_HOLD_TERMINAL", "") != "1":
             return
         hold_terminal(f"{message}\n按任意键关闭此窗口...")
 
     def install_console_close_handler() -> None:
+        """注册 Windows 控制台关闭事件处理器"""
         nonlocal console_close_handler_ref
         if os.name != "nt":
             return
@@ -119,10 +128,12 @@ def buy_cmd(args: BuyCliArgs):
         console_close_handler_ref = _handler
 
     def exit_immediately_if_child_process() -> None:
+        """子进程模式下立即退出"""
         if child_process_mode:
             os._exit(0)
 
     def parent_pid_is_running(pid: int) -> bool:
+        """检查父进程是否仍在运行"""
         if pid <= 0:
             return False
         if os.name == "nt":
@@ -156,6 +167,7 @@ def buy_cmd(args: BuyCliArgs):
         return True
 
     def start_parent_watchdog() -> None:
+        """启动守护线程监控父进程存活状态"""
         raw_parent_pid = os.environ.get("BTB_PARENT_PID", "").strip()
         if not raw_parent_pid:
             return
@@ -184,6 +196,7 @@ def buy_cmd(args: BuyCliArgs):
         ).start()
 
     def run_with_terminal_renderer(tickets_info: str):
+        """使用终端渲染器运行购票任务"""
         buy_job = Buy(
             config=args.with_overrides(
                 tickets_info=tickets_info,

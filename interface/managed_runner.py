@@ -1,3 +1,4 @@
+# 受管抢票子进程入口，独立运行Buy流程并维持心跳
 from __future__ import annotations
 
 import json
@@ -14,11 +15,13 @@ if str(ROOT) not in sys.path:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
+    """从JSON文件加载字典。"""
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _dump_json(path: Path, payload: dict[str, Any]) -> None:
+    """原子化地将字典写入JSON文件。"""
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with open(tmp_path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
@@ -26,6 +29,7 @@ def _dump_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _append_log(path: Path, message: str) -> None:
+    """向日志文件追加一条消息。"""
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(message)
         handle.write("\n")
@@ -38,6 +42,7 @@ def _heartbeat_loop(
     stop_event: threading.Event,
     interval_seconds: float = 2.0,
 ) -> None:
+    """定期更新status.json中的心跳时间戳。"""
     while not stop_event.wait(interval_seconds):
         with lock:
             if status.get("finished_at") is not None:
@@ -47,6 +52,7 @@ def _heartbeat_loop(
 
 
 def main(run_dir_arg: str) -> int:
+    """受管抢票主流程：解析配置、启动心跳、执行Buy流程。"""
     from app_cmd.config.BuyConfig import BuyConfig
     from interface.config import RuntimeOptions
     from task.buy import Buy

@@ -1,3 +1,4 @@
+# BiliTickerBuy Web UI 入口，基于 Gradio 构建前端界面
 import base64
 import os
 import threading
@@ -12,16 +13,19 @@ from util import get_application_path
 
 
 def exit_app_ui():
+    """退出 Web UI 应用"""
     loguru.logger.info("程序退出")
     threading.Timer(2.0, lambda: os._exit(0)).start()
     gr.Info("程序将在弹出提示后退出")
 
 
 def shutdown_app_process(delay_seconds: float = 1.0) -> None:
+    """延迟关闭应用进程"""
     threading.Timer(delay_seconds, lambda: os._exit(0)).start()
 
 
 def ticker_cmd(args: TickerCliArgs):
+    """启动 Gradio Web UI 服务器"""
     from tab.go import go_start_tab
     from tab.config import go_settings_tab
     from tab.log import log_tab, refresh_log_panel, refresh_task_panel
@@ -72,6 +76,7 @@ def ticker_cmd(args: TickerCliArgs):
     """
 
     def refresh_all_task_panels():
+        """刷新所有任务面板和日志面板数据"""
         go_refresh_token, go_panel_update = refresh_task_panel()
         log_refresh_token, log_panel_update = refresh_log_panel()
         go_start_updates = load_go_start_configs()

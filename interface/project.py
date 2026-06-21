@@ -1,3 +1,4 @@
+# 会员购项目详情与票务选项的获取、组装
 from __future__ import annotations
 
 import copy
@@ -13,6 +14,7 @@ OLD_PROJECT_DETAIL_URL = "https://show.bilibili.com/api/ticket/project/getV2"
 def _normalize_new_project_payload(
     new_payload: dict[str, Any], project_id: int
 ) -> dict[str, Any]:
+    """将新版接口返回的原始项目数据归一化为统一的内部结构。"""
     normalized_project_id = int(
         new_payload.get("projectId") or new_payload.get("itemsId") or project_id
     )
@@ -71,6 +73,7 @@ def _normalize_new_project_payload(
 
 
 def _fetch_project_payload_new(*, request: Any, project_id: int) -> dict[str, Any]:
+    """通过新版接口获取项目详情并返回归一化的数据。"""
     request_headers = getattr(request, "headers", None)
     old_headers = {}
     if isinstance(request_headers, dict):
@@ -116,6 +119,7 @@ def _fetch_project_payload_new(*, request: Any, project_id: int) -> dict[str, An
 
 
 def _fetch_project_payload_old(*, request: Any, project_id: int) -> dict[str, Any]:
+    """通过旧版接口获取项目原始数据。"""
     response = request.get(
         url=(
             "{0}?version=134&id={1}&project_id={1}".format(
@@ -139,6 +143,7 @@ def fetch_project_payload(
     request: Any,
     project_id: int,
 ) -> dict[str, Any]:
+    """先尝试新版接口，失败后回退到旧版接口获取项目数据。"""
     try:
         return _fetch_project_payload_new(request=request, project_id=project_id)
     except Exception as new_error:
@@ -158,6 +163,7 @@ def _build_ticket_option(
     hot_project: bool,
     has_eticket: bool,
 ) -> dict[str, Any]:
+    """根据场次和票种信息构建一个格式化的票务选项。"""
     express_fee = 0 if has_eticket else max(int(screen.get("express_fee", 0)), 0)
     price = int(ticket.get("price", 0)) + express_fee
     option = copy.deepcopy(ticket)
@@ -187,6 +193,7 @@ def _merge_link_goods(
     screen_list: list[dict[str, Any]],
     project_id: int,
 ) -> list[dict[str, Any]]:
+    """拉取组合商品（link goods）并将其合并到场次列表中。"""
     merged = copy.deepcopy(screen_list)
     try:
         good_list = request.get(
@@ -221,6 +228,7 @@ def _fetch_ticket_options(
     project_payload: dict[str, Any],
     selected_date: str | None,
 ) -> list[dict[str, Any]]:
+    """提取项目下所有可购买的票务选项列表。"""
     hot_project = bool(project_payload.get("hotProject"))
     has_eticket = bool(project_payload.get("has_eticket"))
     project_id = int(project_payload["id"])
@@ -264,6 +272,7 @@ def fetch_project_detail(
     cookies: list[dict[str, Any]] | dict[str, Any] | None = None,
     cookies_path: str | Path | None = None,
 ) -> dict[str, Any]:
+    """根据项目ID或链接获取项目完整信息。"""
     request = _make_request(cookies=cookies, cookies_path=cookies_path)
     project_id = _extract_project_id(project_input)
     payload = fetch_project_payload(request=request, project_id=project_id)
@@ -280,6 +289,7 @@ def fetch_ticket_options(
     cookies_path: str | Path | None = None,
     selected_date: str | None = None,
 ) -> dict[str, Any]:
+    """获取项目的所有可选票种及其详情。"""
     request = _make_request(cookies=cookies, cookies_path=cookies_path)
     project_id = _extract_project_id(project_input)
     project_payload = fetch_project_payload(request=request, project_id=project_id)
@@ -305,6 +315,7 @@ def fetch_buyers(
     cookies: list[dict[str, Any]] | dict[str, Any] | None = None,
     cookies_path: str | Path | None = None,
 ) -> dict[str, Any]:
+    """获取项目的实名购票人列表。"""
     request = _make_request(cookies=cookies, cookies_path=cookies_path)
     project_id = _extract_project_id(project_input)
     project_payload = fetch_project_payload(request=request, project_id=project_id)
@@ -327,6 +338,7 @@ def fetch_addresses(
     cookies: list[dict[str, Any]] | dict[str, Any] | None = None,
     cookies_path: str | Path | None = None,
 ) -> dict[str, Any]:
+    """获取当前账号的收货地址列表。"""
     request = _make_request(cookies=cookies, cookies_path=cookies_path)
     addr_response = request.get(
         url="https://show.bilibili.com/api/ticket/addr/list"
@@ -342,6 +354,7 @@ def fetch_purchase_context(
     selected_date: str | None = None,
     phone: str = "",
 ) -> dict[str, Any]:
+    """汇总项目、票种、购票人、地址等完整购票上下文。"""
     project_id = _extract_project_id(project_input)
     request = _make_request(cookies=cookies, cookies_path=cookies_path)
     project_payload = fetch_project_payload(request=request, project_id=project_id)

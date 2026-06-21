@@ -56,9 +56,11 @@ from util.request.exceptions import BiliConnectionError, BiliRateLimitError
 
 @dataclass(slots=True)
 class Buy:
+    """抢票入口：从配置创建 stream，支持各种启动方式"""
     config: BuyConfig
 
     def _resolved_tickets_info(self) -> str:
+        """读取票务配置文件或直接透传 JSON"""
         if self.config.config_file:
             config_path = os.path.expanduser(self.config.config_file)
             with open(config_path, "r", encoding="utf-8") as config_file:
@@ -66,6 +68,7 @@ class Buy:
         return self.config.tickets_info
 
     def resolved_config(self) -> BuyConfig:
+        """合并配置文件与 CLI 传入的 tickets_info"""
         return self.config.with_overrides(
             tickets_info=self._resolved_tickets_info(),
         )
@@ -74,9 +77,11 @@ class Buy:
         yield from buy_stream(self.resolved_config())
 
     def start_worker(self) -> BuyStreamWorker:
+        """启动后台抢票 worker"""
         return BuyStreamWorker.start_buy_stream_worker(self.stream)
 
     def to_cli_args(self) -> list[str]:
+        """转为 btb buy 子命令的参数列表"""
         if self.config.config_file:
             return [
                 "buy",
@@ -92,12 +97,14 @@ class Buy:
         ]
 
     def run(self, on_message=None) -> None:
+        """同步运行抢票流，逐个事件推给回调"""
         worker = self.start_worker()
         for event in worker.iter_events():
             if event.message is not None and on_message is not None:
                 on_message(event.message)
 
     def buy(self) -> None:
+        """CLI 模式运行"""
         self.run(logger.info)
 
     def start_new_terminal(
@@ -107,6 +114,7 @@ class Buy:
         log_level: str | None = None,
         log_retention_days: int | None = None,
     ) -> subprocess.Popen:
+        """启动新终端窗口独立运行抢票（win: 新控制台，linux: 新 session）"""
         command = None
 
         if getattr(sys, "frozen", False):
@@ -184,6 +192,7 @@ class Buy:
 
 
 def _extract_prepare_token(result: dict | None) -> str | None:
+    """从 /prepare 响应 data.token 提取订单 token"""
     if not isinstance(result, dict):
         return None
     data = result.get("data")
@@ -197,6 +206,7 @@ def _extract_prepare_token(result: dict | None) -> str | None:
 
 
 def buy_stream(config: BuyConfig):
+    """抢票核心生成器：等待开票 → 准备订单 → 循环创建订单直到成功或终止"""
     state = BuyStreamState()
 
     def emit(
@@ -281,6 +291,7 @@ def buy_stream(config: BuyConfig):
         *,
         attempt: int | None = None,
     ) -> Generator[object, None, bool]:
+        """处理非 JSON 响应：412 走代理冷却，其余记录日志。返回是否触发了 412"""
         diagnostic = _request.describe_non_json_response(response)
         summary = _summarize_non_json_response(prefix, diagnostic)
         # 出现 412 风控时，走代理失败处理，切换代理或进入冷却等待。
@@ -343,6 +354,7 @@ def buy_stream(config: BuyConfig):
     effective_batch_size = max(1, int(config.create_request_batch_size))
 
     def refresh_hot_and_warm():
+        """刷新项目热度状态并预热 HTTP/2 连接。同时注册为 100001 触发器"""
         nonlocal is_hot_project
         payload = fetch_project_payload(
             request=_request, project_id=int(tickets_info["project_id"])
@@ -388,6 +400,7 @@ def buy_stream(config: BuyConfig):
                 ),
             ),
         )
+    # ── 主循环：准备订单 → 创建订单 → 成功/重试 ──
     while isRunning:
         try:
             request_result: dict | None = None
@@ -459,6 +472,7 @@ def buy_stream(config: BuyConfig):
                     attempt_total=effective_retry_limit,
                 ),
             )
+            # ── 创建订单循环：按 batch 分组重试，has_more_page 时重建 payload ──
             result = None
             retry_outcome = RetryOutcome()
             token_expired = False
@@ -492,6 +506,7 @@ def buy_stream(config: BuyConfig):
                         err = int(ret.get("errno", ret.get("code")))
                         retry_outcome.set_response(err, ret)
                         _request.handle_100001(err)
+                        # 成功
                         if _is_create_success(ret, err):
                             yield emit(
                                 "success",
@@ -511,6 +526,7 @@ def buy_stream(config: BuyConfig):
                                 attempt_total=effective_retry_limit,
                             ),
                         )
+                        # 命中终止规则（限购/重复订单等）
                         terminal_rule = _create_order_terminal_rule(err)
                         if terminal_rule is not None:
                             terminal_result = (err, ret, terminal_rule)
@@ -528,10 +544,12 @@ def buy_stream(config: BuyConfig):
                                 ),
                             )
                             break
+                        # token 过期，退回外层重新 prepare
                         if err == 100051:
                             yield emit("status", "token过期，需要重新准备订单")
                             token_expired = True
                             break
+                        # 票价变动，更新后继续重试
                         if err == 100034:
                             yield emit(
                                 "status",
@@ -653,7 +671,7 @@ def buy_stream(config: BuyConfig):
                     f"{_format_retry_reason(retry_outcome)}，重新准备订单",
                 )
                 continue
-            # win了
+            # 抢票成功：通知 + 二维码 + 可选的自动打开支付链接
             request_result, errno = result
             if errno == 0:
                 notifierManager = NotifierManager.create_from_config(
@@ -740,6 +758,7 @@ def buy_new_terminal(
     log_level: str | None = None,
     log_retention_days: int | None = None,
 ) -> subprocess.Popen:
+    """便捷函数：在新终端中启动抢票"""
     return Buy(config=config).buy_new_terminal(
         log_file_path=log_file_path,
         log_level=log_level,

@@ -1,4 +1,4 @@
-"""Update center UI."""
+# 更新中心 UI 模块，提供版本检查和自动更新功能。
 
 from __future__ import annotations
 
@@ -18,10 +18,12 @@ from util.Constant import PACKAGE_NAME, UPDATE_CHANNEL_KEY
 
 
 def _saved_channel() -> str:
+    """获取用户保存的更新频道设置。"""
     return str(ConfigDB.get(UPDATE_CHANNEL_KEY) or UPDATE_CHANNEL_STABLE)
 
 
 def _format_update(release: ReleaseInfo | None, channel: str) -> str:
+    """格式化版本更新信息的 HTML 展示。"""
     current = html.escape(get_app_version())
     if release is None:
         return (
@@ -42,10 +44,12 @@ def _format_update(release: ReleaseInfo | None, channel: str) -> str:
 
 
 def _update_script_name() -> str:
+    """根据平台返回对应的更新脚本文件名。"""
     return "update.bat" if os.name == "nt" else "update.sh"
 
 
 def _runtime_mode() -> str:
+    """检测当前运行模式：bundled/source/pip。"""
     if getattr(sys, "frozen", False):
         return "bundled"
     if sys.argv and sys.argv[0].endswith(".py"):
@@ -56,6 +60,7 @@ def _runtime_mode() -> str:
 
 
 def _source_update_hint() -> str:
+    """生成源码运行模式下的更新提示文本。"""
     repo_dir = html.escape(EXE_PATH)
     return (
         "当前是<strong>源码运行</strong>。"
@@ -65,6 +70,7 @@ def _source_update_hint() -> str:
 
 
 def _pip_update_hint(channel: str) -> str:
+    """生成 pip 安装模式下的更新提示文本。"""
     command = f"python -m pip install -U {PACKAGE_NAME}"
     if channel != UPDATE_CHANNEL_STABLE:
         command += " --pre"
@@ -72,6 +78,7 @@ def _pip_update_hint(channel: str) -> str:
 
 
 def _bundled_update_hint() -> str:
+    """生成打包版运行模式下的更新提示文本。"""
     script_name = _update_script_name()
     script_path = html.escape(os.path.join(EXE_PATH, script_name))
     system = platform.system().lower()
@@ -87,6 +94,7 @@ def _bundled_update_hint() -> str:
 
 
 def _update_hint(channel: str) -> str:
+    """根据运行模式生成对应的更新操作指南。"""
     mode = _runtime_mode()
     if mode == "bundled":
         return _bundled_update_hint()
@@ -96,6 +104,7 @@ def _update_hint(channel: str) -> str:
 
 
 def _check_updates(channel: str | None = None):
+    """检查指定频道是否有可用更新，返回状态信息和发布数据。"""
     channel = channel or _saved_channel()
     ConfigDB.insert(UPDATE_CHANNEL_KEY, channel)
     try:
@@ -117,14 +126,17 @@ def _check_updates(channel: str | None = None):
 
 
 def load_update_check():
+    """页面加载时触发的更新检查。"""
     return _check_updates(_saved_channel())
 
 
 def run_stable_update_check():
+    """手动触发稳定频道更新检查。"""
     return _check_updates(UPDATE_CHANNEL_STABLE)
 
 
 def show_update_loading():
+    """显示更新检查加载中的占位状态。"""
     return (
         '<div class="btb-update-status"><strong>正在检查更新…</strong></div>',
         None,
@@ -133,6 +145,7 @@ def show_update_loading():
 
 
 def update_tab(demo: gr.Blocks):
+    """构建更新检查页面，包含检查按钮、状态显示和更新提示。"""
     status = gr.HTML(
         '<div class="btb-update-status"><strong>正在检查更新…</strong></div>'
     )

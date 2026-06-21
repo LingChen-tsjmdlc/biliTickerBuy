@@ -5,6 +5,7 @@ import inspect
 from typing import Iterable
 
 
+# 终端渲染器初始化上下文
 @dataclass(frozen=True)
 class TerminalRenderContext:
     config_name: str
@@ -12,6 +13,7 @@ class TerminalRenderContext:
     platform_name: str
 
 
+# 终端视图状态快照
 @dataclass
 class TerminalViewState:
     stage: str = "初始化"
@@ -20,6 +22,7 @@ class TerminalViewState:
     cooldown: str = "-"
 
 
+# 日志条目（支持合并去重）
 @dataclass
 class LogItem:
     raw_message: str
@@ -33,6 +36,7 @@ class LogItem:
 
 
 def _extract_message_meta(item) -> tuple[str, str, int | None, int | None]:
+    """从消息对象中提取元信息"""
     message = getattr(item, "message", item)
     kind = getattr(item, "kind", "normal")
     state = getattr(item, "state", None)
@@ -42,19 +46,25 @@ def _extract_message_meta(item) -> tuple[str, str, int | None, int | None]:
 
 
 class BaseTerminalRenderer:
+    """终端渲染器抽象基类"""
+
     def __init__(self, context: TerminalRenderContext):
         self.context = context
 
     def render_header(self) -> None:
+        """渲染终端头部信息"""
         raise NotImplementedError
 
     def render_message(self, message: str) -> None:
+        """渲染单条日志消息"""
         raise NotImplementedError
 
     def render_state(self, state) -> None:
+        """渲染状态信息（子类可选实现）"""
         return None
 
     def close(self) -> None:
+        """关闭渲染器（子类可选实现）"""
         return None
 
 
@@ -62,11 +72,13 @@ class PlainTerminalRenderer(BaseTerminalRenderer):
     """Stable fallback for terminals where Textual cannot render reliably."""
 
     def __init__(self, context: TerminalRenderContext):
+        """初始化纯文本终端渲染器"""
         super().__init__(context)
         self.state = TerminalViewState()
         self._last_snapshot: tuple[str, str, str, str] | None = None
 
     def render_header(self) -> None:
+        """输出终端头部和初始状态快照"""
         print(
             f"[抢票终端] 配置: {self.context.config_name} | 日志: {self.context.log_file}",
             flush=True,
@@ -74,11 +86,13 @@ class PlainTerminalRenderer(BaseTerminalRenderer):
         self._print_snapshot(force=True)
 
     def render_message(self, item) -> None:
+        """打印日志消息并刷新状态快照"""
         message = getattr(item, "message", item)
         self._print_snapshot()
         print(message, flush=True)
 
     def render_state(self, state) -> None:
+        """同步状态并刷新快照"""
         self.state.stage = getattr(state, "stage", self.state.stage)
         self.state.countdown = getattr(state, "countdown", self.state.countdown)
         self.state.current_proxy = getattr(
@@ -93,6 +107,7 @@ class PlainTerminalRenderer(BaseTerminalRenderer):
         self._print_snapshot()
 
     def _print_snapshot(self, *, force: bool = False) -> None:
+        """仅在状态变化时打印状态快照"""
         snapshot = (
             self.state.stage,
             self.state.countdown,
@@ -116,6 +131,7 @@ class PlainTerminalRenderer(BaseTerminalRenderer):
 
 
 def _make_log_item(item) -> LogItem:
+    """将原始消息转换为 LogItem"""
     message, kind, attempt_current, attempt_total = _extract_message_meta(item)
 
     if kind != "attempt" or attempt_current is None or attempt_total is None:
@@ -139,6 +155,7 @@ def _make_log_item(item) -> LogItem:
 
 
 def _can_merge_log_item(item: LogItem, next_item) -> bool:
+    """判断两条日志是否可以合并"""
     message, kind, attempt_current, attempt_total = _extract_message_meta(next_item)
     if item.kind == "normal":
         return item.raw_message == message
@@ -158,6 +175,7 @@ def _can_merge_log_item(item: LogItem, next_item) -> bool:
 
 
 def _merge_log_item(item: LogItem, next_item) -> None:
+    """将下一条日志合并到当前 LogItem"""
     message, kind, attempt_current, attempt_total = _extract_message_meta(next_item)
     if item.kind == "normal":
         item.count += 1
@@ -182,7 +200,10 @@ def _merge_log_item(item: LogItem, next_item) -> None:
 
 
 class TextualTerminalRenderer(BaseTerminalRenderer):
+    """基于 Textual 框架的富终端渲染器"""
+
     def __init__(self, context: TerminalRenderContext):
+        """启动 Textual App 线程"""
         super().__init__(context)
 
         import threading
@@ -235,6 +256,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
             ]
 
             def __init__(self):
+                """初始化 Textual App 组件"""
                 super().__init__()
 
                 self.state = TerminalViewState()
@@ -246,6 +268,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                 self.log_items: list[LogItem] = []
 
             def compose(self) -> ComposeResult:
+                """构建 Textual 界面布局"""
                 # 不显示 Header / Footer，所以不会出现标题栏和底部快捷键栏。
                 # 退出键位放在顶部状态区里显示。
                 with Vertical(id="root"):
@@ -258,6 +281,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                         yield self.log_widget
 
             def on_mount(self) -> None:
+                """挂载后初始化视图并通知就绪"""
                 self.title = ""
                 self.sub_title = ""
 
@@ -267,6 +291,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                 ready.set()
 
             def update_status(self) -> None:
+                """构建并刷新顶部状态面板"""
                 table = Table.grid(expand=True)
                 table.add_column(style="dim", ratio=1)
                 table.add_column(style="bold white", ratio=3)
@@ -295,6 +320,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                     self.status_widget.update(panel)
 
             def update_log(self) -> None:
+                """刷新日志显示区域"""
                 if self.log_widget is None:
                     return
 
@@ -309,11 +335,13 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
 
             @staticmethod
             def _shorten(text: str, width: int = 60) -> str:
+                """截断过长文本"""
                 if not text or text == "-":
                     return "-"
                 return text if len(text) <= width else text[: width - 1] + "…"
 
             def sync_state(self, state) -> None:
+                """从外部状态对象同步视图状态"""
                 self.state.stage = getattr(state, "stage", self.state.stage)
                 self.state.countdown = getattr(state, "countdown", self.state.countdown)
                 self.state.current_proxy = getattr(
@@ -328,6 +356,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                 self.update_status()
 
             def render_log_message(self, message: str, item: LogItem) -> Text:
+                """根据消息内容应用富文本样式"""
                 text = Text()
 
                 if message.startswith(("0)", "1）", "2）", "3）")):
@@ -388,6 +417,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                 return text
 
             def render_log_item(self, item: LogItem) -> Text:
+                """渲染单条 LogItem 并附加重复计数"""
                 line = self.render_log_message(item.display_message, item)
 
                 if item.count > 1:
@@ -396,6 +426,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
                 return line
 
             def add_message(self, event) -> None:
+                """接收新消息并合并或追加到日志列表"""
                 self.message_count += 1
 
                 if self.log_items and _can_merge_log_item(self.log_items[-1], event):
@@ -409,6 +440,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
         self.thread = None
 
     def _dump_final_snapshot(self) -> None:
+        """退出后将最后状态打印到标准输出"""
         state = self.app.state
         print(
             f"[抢票终端] 配置: {self.context.config_name} | 日志: {self.context.log_file}",
@@ -431,6 +463,7 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
             print(item.display_message, flush=True)
 
     def render_header(self) -> None:
+        """启动 Textual App 并等待就绪"""
         def run_app() -> None:
             try:
                 signature = inspect.signature(self.app.run)
@@ -461,12 +494,15 @@ class TextualTerminalRenderer(BaseTerminalRenderer):
             raise RuntimeError("Textual terminal renderer failed to start")
 
     def render_message(self, item) -> None:
+        """通过线程安全方式向 App 投递日志"""
         self.app.call_from_thread(self.app.add_message, item)
 
     def render_state(self, state) -> None:
+        """通过线程安全方式同步状态到 App"""
         self.app.call_from_thread(self.app.sync_state, state)
 
     def close(self) -> None:
+        """退出 Textual App 并输出最终快照"""
         try:
             self.app.call_from_thread(self.app.exit)
         except Exception:
@@ -484,6 +520,7 @@ def create_terminal_renderer(
     *,
     prefer_rich: bool = True,
 ) -> BaseTerminalRenderer:
+    """根据平台和偏好创建终端渲染器实例"""
     if context.platform_name == "nt":
         try:
             if prefer_rich:
@@ -506,6 +543,7 @@ def render_message_stream(
     messages: Iterable,
     on_message=None,
 ) -> None:
+    """遍历消息流并渲染，结束时关闭渲染器"""
     if renderer is not None:
         renderer.render_header()
 

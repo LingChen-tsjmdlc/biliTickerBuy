@@ -9,10 +9,11 @@ from util.proxy.ProxyManager import ProxyManager
 # 代理连通性测试工具
 class ProxyTester:
     def __init__(self, timeout: int = 10):
+        """初始化测试器"""
         self.timeout = timeout
 
-    # 测试单个代理连通性
     def test_single_proxy(self, proxy: str) -> Dict[str, Any]:
+        """测试单个代理连通性"""
         result = {
             "proxy": ProxyManager.mask_proxy_value(proxy) or proxy,
             "status": "failed",
@@ -95,8 +96,8 @@ class ProxyTester:
 
         return "IP获取失败"
 
-    # 验证代理格式是否正确
     def _validate_proxy_format(self, proxy: str) -> bool:
+        """验证代理格式是否正确"""
         try:
             # 基本格式检查
             if not proxy or proxy.strip() == "":
@@ -117,10 +118,10 @@ class ProxyTester:
         except Exception:
             return False
 
-    # 测试代理列表的连通性
     def test_proxy_list(
         self, proxy_string: str, max_workers: int = 5
     ) -> List[Dict[str, Any]]:
+        """并发测试代理列表连通性"""
         proxy_list = ProxyManager.parse_proxy_list(
             proxy_string,
             include_direct_fallback=True,
@@ -168,8 +169,8 @@ class ProxyTester:
         results.sort(key=get_sort_key)
         return results
 
-    # 格式化测试结果为可读文本
     def format_test_results(self, results: List[Dict[str, Any]]) -> str:
+        """格式化测试结果为可读文本"""
         output = []
         output.append("代理连通性测试结果:")
         output.append("=" * 50)
@@ -206,6 +207,7 @@ class ProxyTester:
 
 
 def test_proxy_connectivity(proxy_string: str = "none", timeout: int = 10) -> str:
+    """便捷函数：测试代理连通性并返回格式化结果"""
     tester = ProxyTester(timeout=timeout)
     results = tester.test_proxy_list(proxy_string)
     return tester.format_test_results(results)

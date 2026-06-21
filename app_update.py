@@ -1,3 +1,4 @@
+# GitHub 发布版本发现与更新通知
 """GitHub release discovery for update notifications."""
 
 from __future__ import annotations
@@ -16,10 +17,12 @@ UPDATE_CHANNELS = (UPDATE_CHANNEL_STABLE, UPDATE_CHANNEL_PRERELEASE)
 REQUEST_TIMEOUT = (5, 20)
 
 
+# 更新相关异常类
 class UpdateError(RuntimeError):
     """Raised when an update cannot be discovered or downloaded safely."""
 
 
+# 发布版本信息数据类
 @dataclass(frozen=True)
 class ReleaseInfo:
     version: str
@@ -51,6 +54,7 @@ class ReleaseInfo:
 
 
 def normalize_version(value: str) -> Version:
+    """规范化版本号字符串为 Version 对象"""
     candidate = value.strip()
     if candidate.lower().startswith("v"):
         candidate = candidate[1:]
@@ -63,6 +67,7 @@ def normalize_version(value: str) -> Version:
 def select_update(
     releases: Iterable[dict[str, Any]], current_version: str, channel: str
 ) -> ReleaseInfo | None:
+    """从发布列表中筛选符合更新频道的最高版本"""
     if channel not in UPDATE_CHANNELS:
         raise UpdateError(f"未知更新频道：{channel}")
 
@@ -112,6 +117,7 @@ def fetch_update(
     *,
     session: requests.Session | None = None,
 ) -> ReleaseInfo | None:
+    """从 GitHub API 获取最新发布版本信息"""
     client = session or requests.Session()
     response = client.get(
         GITHUB_RELEASES_API,

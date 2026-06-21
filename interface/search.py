@@ -1,3 +1,4 @@
+# 票务搜索功能，调用B站会员购搜索接口
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,6 +20,7 @@ def search_tickets(
     cookies: list[dict[str, object]] | dict[str, object] | None = None,
     cookies_path: str | Path | None = None,
 ) -> dict[str, object]:
+    """按关键词搜索B站会员购票务，返回格式化搜索结果。"""
     if not keyword or not keyword.strip():
         raise ValueError("keyword is required")
 
@@ -92,6 +94,7 @@ def format_ticket_search_results_text(
     *,
     limit: int = 10,
 ) -> str:
+    """将搜索结果格式化为人类可读的文本。"""
     keyword = search_result.get("keyword", "")
     if search_result.get("requires_login"):
         return "搜索“{0}”前需要先登录当前会员购账号。你先完成登录，我再继续帮你搜。".format(

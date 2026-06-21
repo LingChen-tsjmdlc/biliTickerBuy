@@ -8,6 +8,7 @@ _FAIL_MESSAGES: list[str] = []
 
 
 def _load_messages() -> list[str]:
+    """从JSON文件加载失败消息列表"""
     json_path = os.path.join(get_application_path(), "assets", "fail_messages.json")
     try:
         with open(json_path, "r", encoding="utf-8") as f:
@@ -20,4 +21,5 @@ _FAIL_MESSAGES = _load_messages()
 
 
 def get_random_fail_message() -> str:
+    """随机返回一条失败消息"""
     return random.choice(_FAIL_MESSAGES)

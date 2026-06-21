@@ -1,3 +1,4 @@
+# 票务配置和账号登录页面模块，包含项目搜索、票档选择、配置生成及二维码登录。
 import html
 import json
 import os
@@ -36,10 +37,12 @@ is_hot_project = False
 
 
 def _format_account_choice(uid: str, name: str, level: int) -> str:
+    """格式化账号选项的显示文本。"""
     return f"{uid} - {name} (Lv{level})"
 
 
 def _find_uid_from_choice(choice: str) -> str:
+    """从账号选项文本中提取 UID。"""
     if not choice:
         return ""
     return choice.split(" - ")[0] if " - " in choice else choice
@@ -48,6 +51,7 @@ def _find_uid_from_choice(choice: str) -> str:
 def _resolve_default_account_choice(
     choices: list[str], active_uid: str | None = None
 ) -> str | None:
+    """解析默认选中的账号选项。"""
     if not choices:
         return None
 
@@ -61,6 +65,7 @@ def _resolve_default_account_choice(
 
 
 def _read_positive_int(value) -> int | None:
+    """将输入解析为正整数，无效则返回 None。"""
     if value is None:
         return None
     try:
@@ -71,6 +76,7 @@ def _read_positive_int(value) -> int | None:
 
 
 def _iter_project_dates(start_ts: int, end_ts: int):
+    """遍历项目日期范围内的每一天。"""
     start_day = datetime.fromtimestamp(start_ts).date()
     end_day = datetime.fromtimestamp(end_ts).date()
     cursor = start_day
@@ -82,6 +88,7 @@ def _iter_project_dates(start_ts: int, end_ts: int):
 def _fetch_screens_by_date(
     request: BiliRequest, project_id: int, date_str: str
 ) -> list[dict]:
+    """按日期获取票务场次列表。"""
     response = request.get(
         url=f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={date_str}",
     )
@@ -96,6 +103,7 @@ def _fetch_screens_by_date(
 
 
 def _normalize_date_string(value: Any) -> str | None:
+    """将各种格式的日期值标准化为 YYYY-MM-DD 格式。"""
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -122,6 +130,7 @@ def _normalize_date_string(value: Any) -> str | None:
 
 
 def _screen_matches_date(screen: dict[str, Any], date_str: str) -> bool:
+    """检查场次是否匹配指定日期。"""
     candidates = [
         screen.get("start_time"),
         screen.get("start_time_str"),
@@ -139,6 +148,7 @@ def _screen_matches_date(screen: dict[str, Any], date_str: str) -> bool:
 def _fetch_screens_by_date_with_fallback(
     request: BiliRequest, project_id: int, date_str: str
 ) -> list[dict]:
+    """按日期获取场次，失败时从项目详情中匹配回退。"""
     screens = _fetch_screens_by_date(request, project_id, date_str)
     if screens:
         return screens
@@ -156,6 +166,7 @@ def _fetch_screens_by_date_with_fallback(
 
 
 def _merge_screens(base_screens: list[dict], extra_screens: list[dict]) -> list[dict]:
+    """合并场次列表并按 ID 去重。"""
     merged: list[dict] = []
     seen_screen_ids: set[int] = set()
 
@@ -172,10 +183,12 @@ def _merge_screens(base_screens: list[dict], extra_screens: list[dict]) -> list[
 
 
 def filename_filter(filename):
+    """过滤文件名中的非法字符。"""
     return re.sub(r'[/:*?"<>|]', "", filename)
 
 
 def _format_price(price: int | float) -> str:
+    """将以分为单位的价格格式化为人民币显示。"""
     return f"￥{price / 100:.2f}".rstrip("0").rstrip(".")
 
 
@@ -185,6 +198,7 @@ def _render_ticket_info_html(
     badge: str | None = None,
     hint: str | None = None,
 ) -> str:
+    """渲染票务信息的 HTML 卡片。"""
     items_html = "".join(
         (
             '<div class="btb-mini-card">'
@@ -202,6 +216,7 @@ def _render_ticket_info_html(
 
 
 def _empty_ticket_info_updates():
+    """返回清空所有票务信息 UI 组件的更新列表。"""
     return [
         gr.update(choices=[], value=None),
         gr.update(choices=[], value=[]),
@@ -213,6 +228,7 @@ def _empty_ticket_info_updates():
 
 
 def _has_invalid_index(indices: list[int], values: list[Any]) -> bool:
+    """检查索引列表是否包含越界的无效索引。"""
     return any(
         not isinstance(item, int) or item < 0 or item >= len(values)
         for item in indices
@@ -220,6 +236,7 @@ def _has_invalid_index(indices: list[int], values: list[Any]) -> bool:
 
 
 def _format_ticket_option(screen_name: str, ticket: dict, ticket_price: int) -> str:
+    """格式化票档选项的显示文本。"""
     ticket_desc = ticket.get("desc", "")
     sale_start = str(ticket.get("sale_start", "未知"))
     return (
@@ -229,6 +246,7 @@ def _format_ticket_option(screen_name: str, ticket: dict, ticket_price: int) -> 
 
 
 def _resolve_project_input(project_input: Any) -> tuple[int, int | str, str]:
+    """从链接或数字输入中解析项目 ID。"""
     if isinstance(project_input, int):
         return project_input, project_input, ""
 
@@ -262,6 +280,7 @@ def _resolve_project_input(project_input: Any) -> tuple[int, int | str, str]:
 
 
 def on_submit_ticket_id(num):
+    """根据项目 ID 获取票务、购票人和地址信息。"""
     global buyer_value
     global addr_value
     global ticket_value
@@ -417,6 +436,7 @@ def on_submit_ticket_id(num):
 
 
 def extract_id_from_url(url):
+    """从 B 站活动链接中提取票务 ID。"""
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
     ticket_id = query_params.get("id", [None])[0]
@@ -433,6 +453,7 @@ def on_submit_all(
     people_buyer_phone,
     address_index,
 ):
+    """验证所有输入并生成抢票配置文件。"""
     try:
         if ticket_id is None:
             raise gr.Error("请输入正确的活动链接。")
@@ -526,7 +547,7 @@ def on_submit_all(
 
 
 def upload_file(filepath):
-    """导入 cookie 文件并添加到账号池"""
+    """导入 cookie 文件并添加到账号池。"""
     try:
         temp_request = BiliRequest(cookies_config_path=filepath)
         cookies = temp_request.cookieManager.get_cookies()
@@ -552,6 +573,7 @@ def upload_file(filepath):
 
 
 def login_tab():
+    """构建账号登录页面，包含二维码扫码登录和账号管理功能。"""
     with gr.Column(elem_classes="btb-page-section"):
         with gr.Accordion(
             label="填写当前账号绑定的手机号（可选）",
@@ -570,6 +592,7 @@ def login_tab():
             phone_gate_ui.change(fn=input_phone, inputs=phone_gate_ui, outputs=None)
 
         def generate_qrcode():
+            """生成 B 站登录二维码图片路径和密钥。"""
             headers = {
                 "user-agent": (
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -604,6 +627,7 @@ def login_tab():
             return None, "二维码生成失败"
 
         def poll_login(qrcode_key):
+            """轮询扫码登录状态，成功返回 cookies。"""
             headers = {"User-Agent": "Mozilla/5.0"}
             for _ in range(120):
                 res = requests.get(
@@ -629,6 +653,7 @@ def login_tab():
             return "登录超时，请重试。", None
 
         def start_login():
+            """启动登录流程，生成二维码。"""
             img_path, qrcode_key = generate_qrcode()
             if not img_path:
                 return None, "二维码生成失败"
@@ -637,10 +662,12 @@ def login_tab():
         qrcode_key_state = gr.State("")
 
         def _get_account_choices():
+            """获取格式化的账号选项列表。"""
             accounts = util.main_request.cookieManager.get_accounts()
             return [_format_account_choice(a.uid, a.name, a.level) for a in accounts]
 
         def _get_default_account_choice_from(choices: list[str]) -> str | None:
+            """从选项列表中获取默认选中的账号。"""
             active_uid = None
             if util.main_request.cookieManager.have_cookies():
                 active_uid = util.main_request.cookieManager.get_cookies_value(
@@ -649,6 +676,7 @@ def login_tab():
             return _resolve_default_account_choice(choices, active_uid=active_uid)
 
         def load_login_accounts():
+            """页面加载时加载所有已保存的登录账号。"""
             choices = _get_account_choices()
             return gr.update(
                 choices=choices,
@@ -656,6 +684,7 @@ def login_tab():
             )
 
         def _activate_account(account) -> None:
+            """激活指定账号为当前活跃请求账号。"""
             set_main_request(BiliRequest(cookies_config_path=GLOBAL_COOKIE_PATH))
             util.main_request.cookieManager.db.insert("cookie", account.cookies)
             name = util.main_request.get_request_name()
@@ -715,6 +744,7 @@ def login_tab():
                 )
 
         def on_login_click():
+            """点击生成登录二维码按钮的处理函数。"""
             img_path, msg_or_key = start_login()
             if img_path:
                 gr.Info("已生成二维码，请用 B 站客户端扫码", duration=5)
@@ -729,6 +759,7 @@ def login_tab():
             ]
 
         def on_check_login(key):
+            """确认扫码登录，处理登录结果并切换账号。"""
             if not key:
                 return [
                     gr.update(),
@@ -768,6 +799,7 @@ def login_tab():
             ]
 
         def on_dropdown_change(choice):
+            """切换账号下拉框的处理函数。"""
             uid = _find_uid_from_choice(choice)
             if not uid:
                 return [gr.update(), gr.update()]
@@ -783,6 +815,7 @@ def login_tab():
             ]
 
         def on_delete_account(choice):
+            """删除选中账号并自动切换。"""
             uid = _find_uid_from_choice(choice)
             if not uid:
                 gr.Warning("请先选择一个账号", duration=5)
@@ -835,6 +868,7 @@ def login_tab():
 
         @gr.on(qrcode_key_state.change, inputs=qrcode_key_state, outputs=check_btn)
         def qrcode_key_state_change(key):
+            """二维码密钥变化时控制确认按钮的可见性。"""
             return gr.update(visible=bool(key))
 
         check_btn.click(
@@ -863,6 +897,7 @@ def login_tab():
 
 
 def setting_tab():
+    """构建票务配置页面，包含项目搜索、票档选择和配置生成。"""
     with gr.Column(elem_classes="btb-page-section"):
         with gr.Column(elem_classes="btb-card btb-card-sky btb-layout-card"):
             gr.HTML(
@@ -977,6 +1012,7 @@ def setting_tab():
             )
 
             def on_submit_data(_date):
+                """按选定日期重新获取票档列表。"""
                 global ticket_str_list
                 global ticket_value
                 global is_hot_project

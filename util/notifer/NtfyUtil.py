@@ -27,6 +27,7 @@ class RepeatedNotifier(threading.Thread):
         duration_minutes=5,
         thread_id=None,
     ):
+        """初始化重复通知线程"""
         super().__init__()
         self.server_url = server_url
         self.content = content
@@ -259,6 +260,7 @@ class NtfyNotifier(NotifierBase):
         interval_seconds=15,
         duration_minutes=5,
     ):
+        """初始化Ntfy通知器"""
         super().__init__(title, content, interval_seconds, duration_minutes)
         self.url = url
         self.username = username

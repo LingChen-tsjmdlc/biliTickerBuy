@@ -24,6 +24,7 @@ from .buy_types import CreateOrderTerminalRule, RetryOutcome
 
 
 def get_qrcode_url(_request, order_id) -> str:
+    """根据订单 ID 获取支付二维码链接"""
     url = f"{BASE_URL}/api/ticket/order/getPayParam?order_id={order_id}"
     data = _request.get(url).json()
     if data.get("errno", data.get("code")) == 0:
@@ -32,10 +33,12 @@ def get_qrcode_url(_request, order_id) -> str:
 
 
 def get_order_detail_url(order_id: int | str) -> str:
+    """拼接订单详情页 URL"""
     return f"{BASE_URL}/platform/orderDetail.html?order_id={order_id}"
 
 
 def format_countdown(seconds: float) -> str:
+    """秒数 → X天X小时X分X秒 的可读倒计时"""
     total_seconds = max(0, int(seconds))
     days, remainder = divmod(total_seconds, 86400)
     hours, remainder = divmod(remainder, 3600)
@@ -46,6 +49,7 @@ def format_countdown(seconds: float) -> str:
 
 
 def next_countdown_report_at(countdown_seconds: int) -> int:
+    """根据剩余秒数计算下次播报的阈值（天/时/分/10秒级）"""
     if countdown_seconds > 86400:
         return ((countdown_seconds - 1) // 86400) * 86400
     if countdown_seconds > 3600:
@@ -58,6 +62,7 @@ def next_countdown_report_at(countdown_seconds: int) -> int:
 
 
 def wait_until_start(time_start: str, warmup=None):
+    """生成器：倒计时至开票时间，临近时调用 warmup 预热连接"""
     if not time_start:
         return
 
@@ -122,6 +127,7 @@ def wait_until_start(time_start: str, warmup=None):
 
 
 def build_token_payload(tickets_info: dict) -> dict:
+    """从票务信息构建 /prepare 接口请求体"""
     count = int(tickets_info["count"])
     screen_id = int(tickets_info["screen_id"])
     order_type = int(tickets_info.get("order_type", 1))
@@ -146,6 +152,7 @@ def build_token_payload(tickets_info: dict) -> dict:
 
 
 def build_order_token(tickets_info: dict) -> str:
+    """本地生成订单 token"""
     return generate_token(
         project_id=int(tickets_info["project_id"]),
         screen_id=int(tickets_info["screen_id"]),
@@ -156,11 +163,13 @@ def build_order_token(tickets_info: dict) -> str:
 
 
 def normalize_prepare_ptoken(value: str | None) -> str:
+    """去掉 ptoken 尾部的 = 填充"""
     if value is None:
         return ""
     return str(value).replace("=", "")
 
 
+# 创建订单时命中这些 errno 直接停止重试
 CREATE_ORDER_TERMINAL_RULES: dict[int, CreateOrderTerminalRule] = {
     100003: CreateOrderTerminalRule(
         status="completed",
@@ -179,15 +188,18 @@ CREATE_ORDER_TERMINAL_RULES: dict[int, CreateOrderTerminalRule] = {
 
 
 def create_order_terminal_rule(err: int) -> CreateOrderTerminalRule | None:
+    """查表返回是否命中终止规则"""
     return CREATE_ORDER_TERMINAL_RULES.get(err)
 
 
 def is_create_success(ret: dict, err: int) -> bool:
+    """errno=0 且 response 不含 defaultBBR（风控提示）视为成功"""
     resp_message = str(ret.get("msg", ret.get("message", "")) or "")
     return err == 0 and "defaultBBR" not in resp_message
 
 
 def extract_order_id(ret: dict | None) -> int | str | None:
+    """从响应中提取 orderId"""
     if not isinstance(ret, dict):
         return None
     data = ret.get("data")
@@ -198,6 +210,7 @@ def extract_order_id(ret: dict | None) -> int | str | None:
 
 
 def extract_response_message(ret: dict) -> str:
+    """提取响应中的 msg/message 字段"""
     return str(ret.get("msg", ret.get("message", "")) or "").strip()
 
 
@@ -206,6 +219,7 @@ def append_response_message(err: int, base: str, ret: dict | None) -> str:
 
 
 def format_retry_reason(outcome: RetryOutcome) -> str:
+    """将 RetryOutcome 格式化为可读的失败原因"""
     if outcome.exc is not None:
         return f"最后一次异常: {outcome.exc}"
     if outcome.err is None:
@@ -217,6 +231,7 @@ def format_retry_reason(outcome: RetryOutcome) -> str:
 
 
 def summarize_non_json_response(prefix: str, diagnostic: str) -> str:
+    """解析非 JSON 响应诊断信息，412 单独标注"""
     if "status=412" in diagnostic:
         return f"{prefix}触发 412 风控"
 
@@ -259,6 +274,7 @@ def handle_proxy_failure(
     proxy_backoff: ProxyBackoff,
     notifier_config: NotifierConfig,
 ) -> tuple[str | None, int | None]:
+    """代理失败处理：标记 → 切换 → 全部不可用时退避等待"""
     previous_proxy = _request.current_proxy_display()
     cooled = _request.mark_current_proxy_failure(reason)
     if cooled:
@@ -286,6 +302,7 @@ def handle_proxy_failure(
 
 
 def format_status_result(prefix: str, ret: dict) -> str:
+    """格式化接口响应为日志字符串"""
     err = int(ret.get("errno", ret.get("code", -1)))
     reason = ErrorCodes.get_message(err)
     if reason:
@@ -303,6 +320,7 @@ def prepare_create_request(
     request_result: dict | None,
     ticket_state: CTokenRuntimeState,
 ) -> tuple[str, dict]:
+    """构建 /createV2 请求的 URL 和 payload，含 ctoken/ptoken"""
     payload = dict(tickets_info)
     payload["again"] = 1
     payload["token"] = order_token

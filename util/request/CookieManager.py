@@ -20,6 +20,7 @@ class Account:
 
 
 def parse_cookie_list(cookie_str: str) -> list:
+    """解析逗号分隔的Cookie字符串为Cookie字典列表"""
     cookies = []
     parts = cookie_str.split(",")
 
@@ -80,6 +81,7 @@ class CookieManager:
     _ACCOUNTS_KEY = "accounts"  # 所有账号列表 List[Account]
 
     def __init__(self, config_file_path=None, cookies=None):
+        """初始化Cookie管理器，可选传入配置路径和初始Cookie"""
         self.db = KVDatabase(config_file_path)
         if cookies is not None:
             self.db.insert(self._COOKIE_KEY, cookies)
@@ -87,6 +89,7 @@ class CookieManager:
     # ---------- 当前账号 cookie 操作 ----------
 
     def get_cookies(self, force=False):
+        """获取Cookie，未登录时抛出异常"""
         if force:
             return self.db.get(self._COOKIE_KEY)
         if not self.db.contains(self._COOKIE_KEY):
@@ -95,9 +98,11 @@ class CookieManager:
             return self.db.get(self._COOKIE_KEY)
 
     def have_cookies(self):
+        """检查是否有已保存的Cookie"""
         return self.db.contains(self._COOKIE_KEY)
 
     def get_cookies_str(self):
+        """获取Cookie的字符串表示（key=value; 格式）"""
         cookies = self.get_cookies()
         cookies_str = ""
         assert cookies
@@ -106,6 +111,7 @@ class CookieManager:
         return cookies_str
 
     def get_cookies_value(self, name):
+        """获取指定名称的Cookie值"""
         cookies = self.get_cookies()
         assert cookies
         for cookie in cookies:
@@ -114,12 +120,14 @@ class CookieManager:
         return None
 
     def get_config_value(self, name, default=None):
+        """获取配置项的值，不存在时返回默认值"""
         if self.db.contains(name):
             return self.db.get(name)
         else:
             return default
 
     def set_config_value(self, name, value):
+        """设置配置项的值"""
         self.db.insert(name, value)
 
     # ---------- 多账号管理 ----------
@@ -153,16 +161,19 @@ class CookieManager:
         return account
 
     def remove_account(self, uid: str) -> None:
+        """按UID移除已保存的账号"""
         accounts = [a for a in self.get_accounts() if a.uid != uid]
         self._save_accounts(accounts)
 
     def find_by_uid(self, uid: str) -> Optional[Account]:
+        """按UID查找账号"""
         for a in self.get_accounts():
             if a.uid == uid:
                 return a
         return None
 
     def _save_accounts(self, accounts: list[Account]) -> None:
+        """将账号列表保存到数据库"""
         self.db.insert(self._ACCOUNTS_KEY, [a.__dict__ for a in accounts])
 
     @staticmethod

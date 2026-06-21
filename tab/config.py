@@ -1,3 +1,4 @@
+# 设置配置页面模块，管理代理、音乐、推送和杂项等全局配置项的 UI 和持久化。
 import re
 
 import gradio as gr
@@ -21,6 +22,7 @@ from util.Constant import (
 
 
 def go_settings_tab(header_ui):
+    """构建设置配置页面，包含代理、音乐、推送和杂项配置的子标签页。"""
     buy_defaults = BuyConfig.from_config_db()
     hide_header_default = ConfigDB.get_as_bool("hideHeader", False)
     proxy_assignment_strategy_default = str(
@@ -28,6 +30,7 @@ def go_settings_tab(header_ui):
     ).lower()
 
     def _split_proxy_lines(proxy_text: str | None) -> list[str]:
+        """将代理文本按换行或逗号拆分为代理地址列表。"""
         if not proxy_text:
             return []
         return [
@@ -37,26 +40,32 @@ def go_settings_tab(header_ui):
         ]
 
     def _serialize_proxy_text(proxy_text: str | None) -> str:
+        """将代理文本序列化为逗号分隔的存储格式。"""
         return ",".join(_split_proxy_lines(proxy_text))
 
     def _format_proxy_text(proxy_text: str | None) -> str:
+        """将代理文本格式化为换行分隔的展示格式。"""
         return "\n".join(_split_proxy_lines(proxy_text))
 
     def get_latest_proxy():
+        """从配置数据库获取最新的代理配置并格式化。"""
         return _format_proxy_text(ConfigDB.get("https_proxy") or "")
 
     def input_https_proxy(_https_proxy):
+        """保存代理配置到数据库。"""
         normalized_proxy = _serialize_proxy_text(_https_proxy)
         ConfigDB.insert("https_proxy", normalized_proxy)
         gr.Info("代理配置已保存。")
         return gr.update(value=_format_proxy_text(normalized_proxy))
 
     def clear_https_proxy():
+        """清空代理配置。"""
         ConfigDB.insert("https_proxy", "")
         gr.Info("代理配置已清空。")
         return gr.update(value="")
 
     def test_proxy_connectivity(proxy_string, timeout):
+        """测试代理的连通性并返回结果。"""
         try:
             from util.proxy.ProxyTester import test_proxy_connectivity
 
@@ -69,41 +78,51 @@ def go_settings_tab(header_ui):
             return gr.update(value=f"❌ 测试过程中发生错误: {str(e)}", visible=True)
 
     def show_proxy_test_loading():
+        """显示代理测试的加载中状态。"""
         return gr.update(value="正在测试代理连通性，请稍候...", visible=True)
 
     def inner_input_serverchan(x):
+        """保存 Server酱 的 SendKey 配置。"""
         ConfigDB.insert("serverchanKey", x)
         return gr.update(value=ConfigDB.get("serverchanKey"))
 
     def inner_input_serverchan3(x):
+        """保存 Server酱3 的 API URL 配置。"""
         ConfigDB.insert("serverchan3ApiUrl", x)
         return gr.update(value=ConfigDB.get("serverchan3ApiUrl"))
 
     def inner_input_pushplus(x):
+        """保存 PushPlus 的 Token 配置。"""
         ConfigDB.insert("pushplusToken", x)
         return gr.update(value=ConfigDB.get("pushplusToken"))
 
     def inner_input_bark(x):
+        """保存 Bark 的 Token 配置。"""
         ConfigDB.insert("barkToken", x)
         return gr.update(value=ConfigDB.get("barkToken"))
 
     def inner_input_meow(x):
+        """保存 MeoW 的昵称配置。"""
         ConfigDB.insert("meowNickname", x)
         return gr.update(value=ConfigDB.get("meowNickname"))
 
     def inner_input_ntfy(x):
+        """保存 Ntfy 的服务器 URL 配置。"""
         ConfigDB.insert("ntfyUrl", x)
         return gr.update(value=ConfigDB.get("ntfyUrl"))
 
     def inner_input_ntfy_username(x):
+        """保存 Ntfy 的用户名配置。"""
         ConfigDB.insert("ntfyUsername", x)
         return gr.update(value=ConfigDB.get("ntfyUsername"))
 
     def inner_input_ntfy_password(x):
+        """保存 Ntfy 的密码配置。"""
         ConfigDB.insert("ntfyPassword", x)
         return gr.update(value=ConfigDB.get("ntfyPassword"))
 
     def inner_input_audio_path(x):
+        """保存提示音文件路径配置。"""
         if not x:
             ConfigDB.insert("audioPath", "")
             return gr.update(value=None)
@@ -113,6 +132,7 @@ def go_settings_tab(header_ui):
         return gr.update(value=ConfigDB.get("audioPath"))
 
     def test_terminal_audio():
+        """测试终端音频通知功能。"""
         audio_path = ConfigDB.get("audioPath")
         if not audio_path:
             return "错误: 请先上传提示音"
@@ -130,6 +150,7 @@ def go_settings_tab(header_ui):
             return f"❌ 终端音频通知: 测试播放失败 - {str(e)}"
 
     def test_all_push():
+        """测试所有已配置的推送渠道。"""
         try:
             from util.notifer.Notifier import NotifierManager
 
@@ -139,6 +160,7 @@ def go_settings_tab(header_ui):
             return f"错误: 测试过程中发生异常 - {str(e)}"
 
     def test_ntfy_connection():
+        """测试 Ntfy 服务器的连接状态。"""
         url = ConfigDB.get("ntfyUrl")
         username = ConfigDB.get("ntfyUsername")
         password = ConfigDB.get("ntfyPassword")
@@ -152,10 +174,12 @@ def go_settings_tab(header_ui):
         return f"成功: {message}" if success else f"错误: {message}"
 
     def update_hide_random_message(value):
+        """更新是否隐藏随机语录的开关。"""
         ConfigDB.insert("hideRandomMessage", value)
         return gr.update(value=ConfigDB.get("hideRandomMessage"))
 
     def update_hide_header(value):
+        """更新顶部 Header 的显示/隐藏状态。"""
         ConfigDB.insert("hideHeader", value)
         return (
             gr.update(value=ConfigDB.get("hideHeader")),
@@ -163,38 +187,47 @@ def go_settings_tab(header_ui):
         )
 
     def update_auto_fill_time(value):
+        """更新是否自动填写抢票时间的开关。"""
         ConfigDB.insert("autoFillTime", value)
         return gr.update(value=ConfigDB.get("autoFillTime"))
 
     def update_notify_proxy_exhausted(value):
+        """更新代理耗尽时是否通知的开关。"""
         ConfigDB.insert("notifyProxyExhausted", value)
         return gr.update(value=ConfigDB.get("notifyProxyExhausted"))
 
     def update_show_qrcode(value):
+        """更新抢票成功后是否显示付款二维码的开关。"""
         ConfigDB.insert("showQrcode", value)
         return gr.update(value=ConfigDB.get("showQrcode"))
 
     def update_auto_open_payment_url(value):
+        """更新是否自动打开支付链接的开关。"""
         ConfigDB.insert("autoOpenPaymentUrl", value)
         return gr.update(value=ConfigDB.get("autoOpenPaymentUrl"))
 
     def update_use_local_token(value):
+        """更新是否使用本地 token 的开关。"""
         ConfigDB.insert("useLocalToken", value)
         return gr.update(value=ConfigDB.get("useLocalToken"))
 
     def update_proxy_assignment_strategy(value):
+        """更新代理分配策略配置。"""
         ConfigDB.insert("proxyAssignmentStrategy", value)
         return gr.update(value=ConfigDB.get("proxyAssignmentStrategy"))
 
     def update_log_level(value):
+        """更新日志级别配置。"""
         ConfigDB.insert("logLevel", value)
         return gr.update(value=ConfigDB.get("logLevel"))
 
     def update_auto_cleanup_logs(value):
+        """更新是否自动清理日志的开关。"""
         ConfigDB.insert("autoCleanupLogs", value)
         return gr.update(value=ConfigDB.get("autoCleanupLogs"))
 
     def update_request_interval(value):
+        """更新默认抢票请求间隔配置。"""
         try:
             parsed = max(1, int(value))
         except (TypeError, ValueError):
@@ -205,6 +238,7 @@ def go_settings_tab(header_ui):
         )
 
     def update_create_retry_limit(value):
+        """更新创建订单重试次数配置。"""
         try:
             parsed = max(1, int(value))
         except (TypeError, ValueError):
@@ -215,6 +249,7 @@ def go_settings_tab(header_ui):
         )
 
     def update_create_request_batch_size(value):
+        """更新每次准备订单后的抢票尝试次数配置。"""
         try:
             parsed = max(1, int(value))
         except (TypeError, ValueError):
@@ -228,6 +263,7 @@ def go_settings_tab(header_ui):
         )
 
     def _update_positive_int_config(key: str, value, default: int):
+        """保存正整数配置项，失败时回退到默认值。"""
         try:
             parsed = max(1, int(value))
         except (TypeError, ValueError):
@@ -236,6 +272,7 @@ def go_settings_tab(header_ui):
         return gr.update(value=ConfigDB.get_as_int(key, default))
 
     def update_proxy_max_consecutive_failures(value):
+        """更新单代理最大连续失败次数配置。"""
         return _update_positive_int_config(
             "proxyMaxConsecutiveFailures",
             value,
@@ -243,6 +280,7 @@ def go_settings_tab(header_ui):
         )
 
     def update_proxy_cooldown_seconds(value):
+        """更新代理冷却时间配置。"""
         return _update_positive_int_config(
             "proxyCooldownSeconds",
             value,
@@ -250,6 +288,7 @@ def go_settings_tab(header_ui):
         )
 
     def update_proxy_backoff_max_seconds(value):
+        """更新风控后休眠上限配置。"""
         return _update_positive_int_config(
             "proxyBackoffMaxSeconds",
             value,
@@ -257,6 +296,7 @@ def go_settings_tab(header_ui):
         )
 
     def update_queue_concurrency_limit(value):
+        """更新队列并发上限配置。"""
         try:
             parsed = max(0, int(value))
         except (TypeError, ValueError):
@@ -265,6 +305,7 @@ def go_settings_tab(header_ui):
         return gr.update(value=ConfigDB.get_as_int("queueConcurrencyLimit", 0))
 
     def update_log_retention_days(value):
+        """更新日志保留天数配置。"""
         return _update_positive_int_config(
             "logRetentionDays",
             value,
@@ -272,6 +313,7 @@ def go_settings_tab(header_ui):
         )
 
     def update_max_log_files(value):
+        """更新最多保留日志文件数配置。"""
         return _update_positive_int_config(
             "maxLogFiles",
             value,
@@ -279,6 +321,7 @@ def go_settings_tab(header_ui):
         )
 
     def update_max_run_dirs(value):
+        """更新最多保留运行目录数配置。"""
         return _update_positive_int_config(
             "maxRunDirs",
             value,
@@ -286,6 +329,7 @@ def go_settings_tab(header_ui):
         )
 
     def _bind_number_commit(component, fn):
+        """绑定数字输入框的 blur 和 submit 事件到更新函数。"""
         component.blur(
             fn=fn,
             inputs=component,
@@ -760,6 +804,7 @@ def go_settings_tab(header_ui):
     )
 
     def load_go_settings_configs():
+        """加载所有设置页面的配置值用于页面初始化。"""
         buy_defaults = BuyConfig.from_config_db()
         hide_header = ConfigDB.get_as_bool("hideHeader", False)
         return [

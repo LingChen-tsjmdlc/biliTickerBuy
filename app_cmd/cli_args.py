@@ -1,3 +1,4 @@
+# 命令行参数数据类定义
 from __future__ import annotations
 
 import os
@@ -7,6 +8,7 @@ from app_cmd.config.BuyConfig import BuyConfig
 
 
 def _env_bool(key: str, default: bool) -> bool:
+    """从环境变量读取布尔值"""
     raw = os.environ.get(f"BTB_{key}")
     if raw is None:
         return default
@@ -14,6 +16,7 @@ def _env_bool(key: str, default: bool) -> bool:
 
 
 def _env_optional_int(*keys: str) -> int | None:
+    """从环境变量读取可选的整数值"""
     for key in keys:
         raw = os.environ.get(key)
         if raw not in (None, ""):
@@ -22,6 +25,7 @@ def _env_optional_int(*keys: str) -> int | None:
 
 
 def _env_optional_str(*keys: str) -> str | None:
+    """从环境变量读取可选的字符串值"""
     for key in keys:
         raw = os.environ.get(key)
         if raw not in (None, ""):
@@ -29,6 +33,7 @@ def _env_optional_str(*keys: str) -> str | None:
     return None
 
 
+# Web UI 启动参数数据类
 @dataclass(slots=True)
 class TickerCliArgs:
     """Web UI launch options."""

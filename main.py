@@ -1,3 +1,4 @@
+# biliTickerBuy 命令行入口，解析子命令并路由执行
 from __future__ import annotations
 
 import sys
@@ -28,6 +29,7 @@ CliCommand = BuyCommand | UiCommand
 
 
 def _normalize_argv(argv: list[str]) -> list[str]:
+    """规范化命令行参数，默认路由到 ui 子命令"""
     normalized = [
         "--config-file" if arg in {"-cf", "--config-fileme"} else arg for arg in argv
     ]
@@ -44,6 +46,7 @@ def _normalize_argv(argv: list[str]) -> list[str]:
 
 
 def main() -> None:
+    """程序主入口，解析子命令并分发执行"""
     command = tyro.cli(CliCommand, args=_normalize_argv(sys.argv[1:]))  # type: ignore
     if isinstance(command, BuyCliArgs):
         buy_cmd(command)

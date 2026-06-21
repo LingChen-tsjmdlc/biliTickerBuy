@@ -1,3 +1,4 @@
+# 配置管理，包括运行时选项、购票配置生成和验证
 from __future__ import annotations
 
 import copy
@@ -21,6 +22,7 @@ from .common import (
 from .types import ValidationResult
 
 
+# 运行时选项，控制抢票行为、通知、代理等参数
 @dataclass(slots=True)
 class RuntimeOptions:
     interval: int = 1000
@@ -51,12 +53,14 @@ class RuntimeOptions:
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "RuntimeOptions":
+        """从字典创建RuntimeOptions实例。"""
         return build_runtime_options(**data)
 
     def merged_with(
         self,
         overrides: dict[str, Any] | "RuntimeOptions" | None,
     ) -> "RuntimeOptions":
+        """合并当前选项与覆盖值，返回新的RuntimeOptions。"""
         if overrides is None:
             return copy.deepcopy(self)
         if isinstance(overrides, RuntimeOptions):
@@ -66,10 +70,12 @@ class RuntimeOptions:
         return RuntimeOptions.from_mapping(merged)
 
     def to_dict(self) -> dict[str, Any]:
+        """将运行时选项转为字典。"""
         return asdict(self)
 
 
 def normalize_time_start(value: Any) -> str:
+    """将各种格式的开始时间字符串规范化为标准格式。"""
     if value in (None, ""):
         return ""
     if isinstance(value, datetime):
@@ -115,6 +121,7 @@ def normalize_time_start(value: Any) -> str:
 
 
 def normalize_interval(value: Any) -> int:
+    """将间隔时间字符串规范化为毫秒整数。"""
     if value in (None, ""):
         return 1000
     if isinstance(value, bool):
@@ -159,6 +166,7 @@ def normalize_interval(value: Any) -> int:
 
 
 def normalize_non_negative_interval(value: Any, *, default: int = 0) -> int:
+    """将非负间隔时间字符串规范化为毫秒整数。"""
     if value in (None, ""):
         return default
     if isinstance(value, bool):
@@ -200,6 +208,7 @@ def normalize_non_negative_interval(value: Any, *, default: int = 0) -> int:
 
 
 def normalize_positive_int(value: Any, *, default: int) -> int:
+    """将值规范化为正整数。"""
     if value in (None, ""):
         return default
     if isinstance(value, bool):
@@ -214,6 +223,7 @@ def normalize_positive_int(value: Any, *, default: int) -> int:
 
 
 def load_ticket_config(path: str | Path) -> dict[str, Any]:
+    """从文件加载购票配置。"""
     return _load_config(path)
 
 
@@ -224,6 +234,7 @@ def save_ticket_config(
     ensure_ascii: bool = False,
     indent: int = 2,
 ) -> Path:
+    """将购票配置保存到JSON文件。"""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     with open(target, "w", encoding="utf-8") as handle:
@@ -232,6 +243,7 @@ def save_ticket_config(
 
 
 def _normalize_buyer_info(value: Any) -> list[dict[str, Any]]:
+    """将购票人信息统一为列表格式。"""
     if isinstance(value, dict):
         return [copy.deepcopy(value)]
     if isinstance(value, list):
@@ -244,6 +256,7 @@ def generate_ticket_config(
     *,
     defaults: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """根据参数生成完整的购票配置字典。"""
     config: dict[str, Any] = copy.deepcopy(defaults or {})
     config.update(copy.deepcopy(parameters))
 
@@ -314,6 +327,7 @@ def build_runtime_options(
     log_level: str = "standard",
     log_retention_days: int = 7,
 ) -> RuntimeOptions:
+    """根据参数构建标准化RuntimeOptions实例。"""
     return RuntimeOptions(
         interval=normalize_interval(interval),
         outer_interval=normalize_non_negative_interval(outer_interval, default=0),
@@ -364,6 +378,7 @@ def build_ticket_config_from_selection(
     *,
     defaults: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """根据购票上下文和用户选择构建完整配置。"""
     ticket_options = purchase_context.get("ticket_options") or []
     buyers = purchase_context.get("buyers") or []
     addresses = purchase_context.get("addresses") or []
@@ -445,6 +460,7 @@ def build_ticket_config_from_selection(
 
 
 def validate_config(config_or_path: str | Path | dict[str, Any]) -> ValidationResult:
+    """验证购票配置的完整性和合法性。"""
     try:
         config = generate_ticket_config(_load_config(config_or_path))
     except Exception as exc:

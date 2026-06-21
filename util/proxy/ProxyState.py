@@ -6,6 +6,7 @@ import time
 from typing import Callable
 
 
+# 代理状态记录（dataclass）
 @dataclass
 class ProxyStateEntry:
     raw_proxy: str
@@ -17,14 +18,17 @@ class ProxyStateEntry:
     recent_failures: deque[float] = field(default_factory=deque)
 
     def is_available(self, now: float | None = None) -> bool:
+        """当前代理是否可用（未处于冷却期）"""
         current_time = time.time() if now is None else now
         return current_time >= self.cooldown_until
 
     def cooldown_remaining(self, now: float | None = None) -> int:
+        """剩余冷却秒数"""
         current_time = time.time() if now is None else now
         return max(0, int(self.cooldown_until - current_time))
 
 
+# 代理状态注册表，管理代理池的可用性、冷却与切换
 class ProxyStateRegistry:
     def __init__(
         self,
@@ -35,6 +39,7 @@ class ProxyStateRegistry:
         failure_window_seconds: float = 45.0,
         cooldown_seconds: float = 180.0,
     ):
+        """初始化状态注册表"""
         self.failure_threshold = max(1, int(failure_threshold))
         self.failure_window_seconds = max(1.0, float(failure_window_seconds))
         self.cooldown_seconds = max(1.0, float(cooldown_seconds))
@@ -48,27 +53,33 @@ class ProxyStateRegistry:
         ]
 
     def set_current_index(self, index: int) -> None:
+        """设置当前代理索引"""
         if index < 0 or index >= len(self.states):
             raise IndexError("proxy index out of range")
         self.current_index = index
 
     def current_state(self) -> ProxyStateEntry:
+        """获取当前代理状态条目"""
         return self.states[self.current_index]
 
     def current_display_name(self) -> str:
+        """当前代理显示名称"""
         return self.current_state().display_name
 
     def _trim_failures(self, state: ProxyStateEntry, now: float) -> None:
+        """清理超出时间窗口的失败记录"""
         window_start = now - self.failure_window_seconds
         while state.recent_failures and state.recent_failures[0] < window_start:
             state.recent_failures.popleft()
 
     def record_current_success(self) -> None:
+        """记录当前代理成功，清空失败记录"""
         state = self.current_state()
         state.total_successes += 1
         state.recent_failures.clear()
 
     def record_current_failure(self, reason: str) -> bool:
+        """记录当前代理失败，达阈值时触发冷却"""
         now = time.time()
         state = self.current_state()
         state.total_failures += 1
@@ -82,20 +93,25 @@ class ProxyStateRegistry:
         return True
 
     def available_count(self, now: float | None = None) -> int:
+        """当前可用代理数量"""
         current_time = time.time() if now is None else now
         return sum(1 for state in self.states if state.is_available(current_time))
 
     def cooldown_count(self, now: float | None = None) -> int:
+        """当前冷却中的代理数量"""
         current_time = time.time() if now is None else now
         return sum(1 for state in self.states if not state.is_available(current_time))
 
     def has_available_proxy(self, now: float | None = None) -> bool:
+        """是否存在可用代理"""
         return self.available_count(now) > 0
 
     def is_current_available(self, now: float | None = None) -> bool:
+        """当前代理是否可用"""
         return self.current_state().is_available(now)
 
     def switch_to_next_available(self) -> bool:
+        """切换到下一个可用代理"""
         now = time.time()
         if len(self.states) <= 1:
             return False
@@ -107,11 +123,13 @@ class ProxyStateRegistry:
         return False
 
     def ensure_current_available(self) -> bool:
+        """确保当前代理可用，不可用时自动切换"""
         if self.is_current_available():
             return True
         return self.switch_to_next_available()
 
     def current_status_text(self) -> str:
+        """当前代理状态摘要文本"""
         return (
             f"{self.current_display_name()} | "
             f"可用 {self.available_count()}/{len(self.states)} | "
@@ -119,6 +137,7 @@ class ProxyStateRegistry:
         )
 
     def describe_all_states(self) -> str:
+        """描述所有代理的可用/冷却状态"""
         now = time.time()
         parts: list[str] = []
         for index, state in enumerate(self.states):
