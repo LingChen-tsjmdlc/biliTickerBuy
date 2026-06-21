@@ -561,7 +561,7 @@ def buy_stream(config: BuyConfig):
                                 attempt_total=effective_retry_limit,
                             ),
                         )
-                        continue  # 不需要sleep
+                        should_sleep_before_next_attempt = True
                     except RequestException as e:
                         retry_outcome.set_exception(e)
                         for message in handle_proxy_failure(
