@@ -29,5 +29,4 @@ dev
 local_overrides/
 test.py
 !app_cmd/config
-.workbuddy/
 user_config/
