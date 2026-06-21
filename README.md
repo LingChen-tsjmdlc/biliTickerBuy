@@ -32,6 +32,26 @@
 
 请查看完整的 [安装指南](./docs/installation.md)。
 
+## 🔀 Fork 开发同步
+
+> 适用于 fork 了本仓库进行二次开发的场景。
+
+```bash
+# 本地需配置两个 remote
+# origin   → 你的 fork（可推可改）
+# upstream → 上游仓库（只拉不改）
+```
+
+上游有新提交时，执行：
+
+```bash
+git checkout main
+git pull upstream main    # main 同步上游最新
+git push origin main      # 推到你 fork 的 main
+git checkout dev
+git merge main            # dev 合并上游新代码
+```
+
 ## 👀 使用说明书
 
 前往飞书： https://n1x87b5cqay.feishu.cn/wiki/Eg4xwt3Dbiah02k1WqOcVk2YnMd
@@ -44,14 +64,17 @@
 
 ## Related Work
 
-Skill版本：https://github.com/mikumifa/biliTickerSkill
+Skill 版本：https://github.com/mikumifa/biliTickerSkill
 
 分布式版本：https://github.com/mikumifa/biliTickerStorm
 
 ## 📩 免责声明
+
 本项目遵循 MIT License 许可协议，仅供个人学习与研究使用。请勿将本项目用于任何商业牟利行为，亦严禁用于任何形式的代抢、违法行为或违反相关平台规则的用途。由此产生的一切后果均由使用者自行承担，与本人无关。
 若您 fork 或使用本项目，请务必遵守相关法律法规与目标平台规则。
+
 ## 🛡️ 平台尊重声明
+
 本项目在设计时严格遵循「非侵入式」原则，避免对目标服务器（如 Bilibili）造成任何干扰。
 如本项目中存在侵犯 Bilibili 公司合法权益的内容，请通过邮箱 [1055069518@qq.com](mailto:1055069518@qq.com) 与我联系，我将第一时间下架相关内容并删除本仓库。对此造成的不便，我深表歉意，感谢您的理解与包容。
 
