@@ -31,7 +31,7 @@ CliCommand = BuyCommand | UiCommand
 def _normalize_argv(argv: list[str]) -> list[str]:
     """规范化命令行参数，默认路由到 ui 子命令"""
     normalized = [
-        "--config-file" if arg in {"-cf", "--config-fileme"} else arg for arg in argv
+        "--config-file" if arg in {"-cf", "--config-file"} else arg for arg in argv
     ]
 
     argv = normalized

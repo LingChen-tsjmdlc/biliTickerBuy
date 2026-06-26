@@ -113,6 +113,18 @@ class ProxyManager:
         """代理池全部状态描述"""
         return self.state_registry.describe_all_states()
 
+    def replace_proxy_list(self, proxy_string: str) -> None:
+        proxy_list = self.parse_proxy_list(proxy_string)
+        if not proxy_list:
+            raise ValueError("at least have none proxy")
+        self.proxy_list = proxy_list
+        self.state_registry = ProxyStateRegistry(
+            self.proxy_list,
+            mask_proxy=self.mask_proxy_value,
+            failure_threshold=self.state_registry.failure_threshold,
+            cooldown_seconds=self.state_registry.cooldown_seconds,
+        )
+
     def snapshot(self) -> int:
         """保存当前代理索引快照"""
         return self.now_proxy_idx
