@@ -140,6 +140,7 @@ class LatestValueWorker(Generic[T]):
 
     def start(self) -> "LatestValueWorker[T]":
         """启动后台线程，开始消费 producer"""
+        self._thread.start()
         return self
 
     def _publish(self, value: T) -> None:
